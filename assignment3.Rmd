@@ -1,0 +1,61 @@
+---
+title: "Assignment 3"
+author: "Student ID: 201903536"
+date: "30 November 2023"
+output: html_document
+---
+
+```{r setup, include=FALSE} 
+#####################################
+# SETUP
+#####################################
+
+knitr::opts_chunk$set(echo = FALSE) 
+
+#####################################
+# Install/load packages
+#####################################
+
+
+```
+
+
+## GitHub
+
+The GitHub repository for **this assignment** can be found [here](https://github.com/emmi3105/472_assignment3).
+
+
+## Exercise 1
+
+
+## Exercise 2
+
+Write an automatic webscraping function in R that constructs a table (as e.g. a data frame, a tibble, or a data table) of all R1 (Very High Research Activity) and R2 (High Research Activity) Research Universities in the United States of America. These data can be found on wikipedia.
+
+Your initial scraper should collect five variables:
+
+I. The university’s name
+It’s status (public or private)
+The city in which it is located
+The state in which it is located
+The URL of the university’s dedicated Wikipedia page
+
+
+## Exercise 3
+
+
+
+## Data
+
+
+
+## Sources
+
+
+
+## Appendix: All code in this assignment
+
+```{r ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE} 
+
+
+```
