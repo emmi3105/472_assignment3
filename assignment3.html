@@ -384,20 +384,15 @@ found on <a href="https://en.wikipedia.org/wiki/List_of_research_universities_in
 </ol>
 <div id="write-the-function" class="section level4">
 <h4>Write the function</h4>
-<pre><code>## # A tibble: 279 × 5
-##    Institution                        Control          City  State Wikipedia_URL
-##    &lt;chr&gt;                              &lt;chr&gt;            &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;        
-##  1 Arizona State University           Public           Tempe AZ    https://en.w…
-##  2 Auburn University                  Public           Aubu… AL    https://en.w…
-##  3 Baylor University                  Private (non-pr… Waco  TX    https://en.w…
-##  4 Binghamton University              Public           Vest… NY    https://en.w…
-##  5 Boston College                     Private (non-pr… Ches… MA    https://en.w…
-##  6 Boston University                  Private (non-pr… Bost… MA    https://en.w…
-##  7 Brandeis University                Private (non-pr… Walt… MA    https://en.w…
-##  8 Brown University                   Private (non-pr… Prov… RI    https://en.w…
-##  9 California Institute of Technology Private (non-pr… Pasa… CA    https://en.w…
-## 10 Carnegie Mellon University         Private (non-pr… Pitt… PA    https://en.w…
-## # ℹ 269 more rows</code></pre>
+<pre><code>## # A tibble: 6 × 5
+##   Institution              Control              City         State Wikipedia_URL
+##   &lt;chr&gt;                    &lt;chr&gt;                &lt;chr&gt;        &lt;chr&gt; &lt;chr&gt;        
+## 1 Arizona State University Public               Tempe        AZ    https://en.w…
+## 2 Auburn University        Public               Auburn       AL    https://en.w…
+## 3 Baylor University        Private (non-profit) Waco         TX    https://en.w…
+## 4 Binghamton University    Public               Vestal       NY    https://en.w…
+## 5 Boston College           Private (non-profit) Chestnut Hi… MA    https://en.w…
+## 6 Boston University        Private (non-profit) Boston       MA    https://en.w…</code></pre>
 </div>
 </div>
 </div>
@@ -426,72 +421,61 @@ library(rvest)
 library(tidyverse)
 
 
-scrape_wikipedia_tables &lt;- function(url) {
+scrape_wikipedia_tables &lt;- function(url, table_indices) {
   # Storing the URL&#39;s HTML code
   html_content &lt;- read_html(url)
   
-  # Extracting tables in the document
+  # Extracting all tables in the document 
   tab &lt;- html_table(html_content, fill = TRUE)
-  
-  # The website has three tables but we are only interested in the first two
-  # Extract the first two tables
-  first_two_tables &lt;- tab[1:2]
-  
-  # Save the two dataframes in first_two_tables as tibbles
-  
-  # r1_universities
-  r1_universities &lt;- as_tibble(first_two_tables[[1]])
-  
-  # r2_universities
-  # Since the second table has 5 columns, one of which includes no data, we need to only select the first four columns
-  r2_universities &lt;- as_tibble(first_two_tables[[2]][, 1:4])
-  
-##############################  
-  # Extract hyperlinks from the first column of the first table
-  table_nodes_r1 &lt;- html_content %&gt;%
-    html_nodes(&quot;#mw-content-text &gt; div.mw-content-ltr.mw-parser-output &gt; table:nth-child(19)&quot;)
-  
-  # Assuming you want to extract hyperlinks from the first table
-  first_table_r1 &lt;- table_nodes_r1[[1]]
-  
-  hyperlinks_first_column_r1 &lt;- first_table_r1 %&gt;%
-    html_nodes(&quot;td:nth-child(1) a&quot;) %&gt;%
-    html_attr(&quot;href&quot;)
-  
-  # Concatenate the base URL to the extracted hyperlinks
-  full_hyperlinks_r1 &lt;- paste0(&quot;https://en.wikipedia.org/&quot;, hyperlinks_first_column_r1)
-  
-  # Add a new column &#39;Wikipedia_URL&#39; with the extracted URLs
-  r1_universities$Wikipedia_URL &lt;- full_hyperlinks_r1
-  
-  # Extract hyperlinks from the first column of the second table
-  table_nodes_r2 &lt;- html_content %&gt;%
-    html_nodes(&quot;#mw-content-text &gt; div.mw-content-ltr.mw-parser-output &gt; table:nth-child(27)&quot;)
-  
-  # Assuming you want to extract hyperlinks from the first table
-  first_table_r2 &lt;- table_nodes_r2[[1]]
-  
-  hyperlinks_first_column_r2 &lt;- first_table_r2 %&gt;%
-    html_nodes(&quot;td:nth-child(1) a&quot;) %&gt;%
-    html_attr(&quot;href&quot;)
-  
-  # Concatenate the base URL to the extracted hyperlinks
-  full_hyperlinks_r2 &lt;- paste0(&quot;https://en.wikipedia.org/&quot;, hyperlinks_first_column_r2)
-  
-  # Add a new column &#39;Wikipedia_URL&#39; with the extracted URLs
-  r2_universities$Wikipedia_URL &lt;- full_hyperlinks_r2
 
-####################    
-  # Concatenate the two dataframes
-  universities &lt;- bind_rows(r1_universities, r2_universities)
+  # Extract only the tables of interest given the input table_indices
+  selected_tables &lt;- tab[1:length(table_indices)]
+
+  # Iterate over tables and bind rows
+  empty_tibble &lt;- tibble()
+  for (i in 1:length(selected_tables)) {
+    current_table &lt;- as_tibble(selected_tables[[i]][, 1:4])
+    empty_tibble &lt;- bind_rows(empty_tibble, current_table)
+  }
+
+  # Initialize an empty list to store hyperlinks
+  hyperlinks_list &lt;- list()
+
+  # Iterate over the table indices and extract hyperlinks
+  for (index in table_indices) {
+    table_nodes &lt;- html_content %&gt;%
+      html_nodes(paste(&quot;#mw-content-text &gt; div.mw-content-ltr.mw-parser-output &gt; table:nth-child(&quot;, index, &quot;)&quot;, sep = &quot;&quot;))
   
-  return(universities)
+    # Assuming you want to extract hyperlinks from the first table
+    current_node_set &lt;- table_nodes[[1]]
+  
+    hyperlinks_current_node &lt;- current_node_set %&gt;%
+      html_nodes(&quot;td:nth-child(1) a&quot;) %&gt;%
+      html_attr(&quot;href&quot;)
+  
+    # Append the hyperlinks to the list
+    hyperlinks_list &lt;- c(hyperlinks_list, hyperlinks_current_node)
+  }
+
+  # Unlist to flatten the list
+  hyperlinks_list &lt;- unlist(hyperlinks_list, recursive = FALSE)
+
+
+  # Concatenate the base URL to the extracted hyperlinks
+  hyperlinks_list &lt;- paste0(&quot;https://en.wikipedia.org/&quot;, hyperlinks_list)
+  
+  # Add a new column &#39;Wikipedia_URL&#39; with the extracted URLs
+  empty_tibble$Wikipedia_URL &lt;- hyperlinks_list
+
+  return(empty_tibble)
 }
 
-# Example usage:
+# Test the function using the url from the Wikipedia website and the two tables of interest:
 url &lt;- &quot;https://en.wikipedia.org/wiki/List_of_research_universities_in_the_United_States&quot;
-result &lt;- scrape_wikipedia_tables(url)
-print(result)</code></pre>
+indices_of_interest &lt;- c(19, 27)
+
+result &lt;- scrape_wikipedia_tables(url, indices_of_interest)
+print(head(result))</code></pre>
 </div>
 
 
