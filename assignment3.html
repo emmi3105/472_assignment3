@@ -367,15 +367,39 @@ found <a href="https://github.com/emmi3105/472_assignment3">here</a>.</p>
 </div>
 <div id="exercise-2" class="section level2">
 <h2>Exercise 2</h2>
+<div id="a.-gathering-structured-data" class="section level3">
+<h3>a. Gathering structured data</h3>
 <p>Write an automatic webscraping function in R that constructs a table
 (as e.g. a data frame, a tibble, or a data table) of all R1 (Very High
-Research Activity) and R2 (High Research Activity) Research Universities
-in the United States of America. These data can be found on
-wikipedia.</p>
+Research Activity) <strong>and</strong> R2 (High Research Activity)
+Research Universities in the United States of America. These data can be
+found on <a href="https://en.wikipedia.org/wiki/List_of_research_universities_in_the_United_States">wikipedia</a>.</p>
 <p>Your initial scraper should collect five variables:</p>
-<p>I. The university’s name It’s status (public or private) The city in
-which it is located The state in which it is located The URL of the
-university’s dedicated Wikipedia page</p>
+<ol style="list-style-type: lower-roman">
+<li>The university’s name</li>
+<li>It’s status (public or private)</li>
+<li>The city in which it is located</li>
+<li>The state in which it is located</li>
+<li>The URL of the university’s dedicated Wikipedia page</li>
+</ol>
+<div id="write-the-function" class="section level4">
+<h4>Write the function</h4>
+<pre><code>## # A tibble: 279 × 5
+##    Institution                        Control          City  State Wikipedia_URL
+##    &lt;chr&gt;                              &lt;chr&gt;            &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;        
+##  1 Arizona State University           Public           Tempe AZ    https://en.w…
+##  2 Auburn University                  Public           Aubu… AL    https://en.w…
+##  3 Baylor University                  Private (non-pr… Waco  TX    https://en.w…
+##  4 Binghamton University              Public           Vest… NY    https://en.w…
+##  5 Boston College                     Private (non-pr… Ches… MA    https://en.w…
+##  6 Boston University                  Private (non-pr… Bost… MA    https://en.w…
+##  7 Brandeis University                Private (non-pr… Walt… MA    https://en.w…
+##  8 Brown University                   Private (non-pr… Prov… RI    https://en.w…
+##  9 California Institute of Technology Private (non-pr… Pasa… CA    https://en.w…
+## 10 Carnegie Mellon University         Private (non-pr… Pitt… PA    https://en.w…
+## # ℹ 269 more rows</code></pre>
+</div>
+</div>
 </div>
 <div id="exercise-3" class="section level2">
 <h2>Exercise 3</h2>
@@ -396,7 +420,78 @@ knitr::opts_chunk$set(echo = FALSE)
 
 #####################################
 # Install/load packages
-#####################################</code></pre>
+#####################################
+
+library(rvest)
+library(tidyverse)
+
+
+scrape_wikipedia_tables &lt;- function(url) {
+  # Storing the URL&#39;s HTML code
+  html_content &lt;- read_html(url)
+  
+  # Extracting tables in the document
+  tab &lt;- html_table(html_content, fill = TRUE)
+  
+  # The website has three tables but we are only interested in the first two
+  # Extract the first two tables
+  first_two_tables &lt;- tab[1:2]
+  
+  # Save the two dataframes in first_two_tables as tibbles
+  
+  # r1_universities
+  r1_universities &lt;- as_tibble(first_two_tables[[1]])
+  
+  # r2_universities
+  # Since the second table has 5 columns, one of which includes no data, we need to only select the first four columns
+  r2_universities &lt;- as_tibble(first_two_tables[[2]][, 1:4])
+  
+##############################  
+  # Extract hyperlinks from the first column of the first table
+  table_nodes_r1 &lt;- html_content %&gt;%
+    html_nodes(&quot;#mw-content-text &gt; div.mw-content-ltr.mw-parser-output &gt; table:nth-child(19)&quot;)
+  
+  # Assuming you want to extract hyperlinks from the first table
+  first_table_r1 &lt;- table_nodes_r1[[1]]
+  
+  hyperlinks_first_column_r1 &lt;- first_table_r1 %&gt;%
+    html_nodes(&quot;td:nth-child(1) a&quot;) %&gt;%
+    html_attr(&quot;href&quot;)
+  
+  # Concatenate the base URL to the extracted hyperlinks
+  full_hyperlinks_r1 &lt;- paste0(&quot;https://en.wikipedia.org/&quot;, hyperlinks_first_column_r1)
+  
+  # Add a new column &#39;Wikipedia_URL&#39; with the extracted URLs
+  r1_universities$Wikipedia_URL &lt;- full_hyperlinks_r1
+  
+  # Extract hyperlinks from the first column of the second table
+  table_nodes_r2 &lt;- html_content %&gt;%
+    html_nodes(&quot;#mw-content-text &gt; div.mw-content-ltr.mw-parser-output &gt; table:nth-child(27)&quot;)
+  
+  # Assuming you want to extract hyperlinks from the first table
+  first_table_r2 &lt;- table_nodes_r2[[1]]
+  
+  hyperlinks_first_column_r2 &lt;- first_table_r2 %&gt;%
+    html_nodes(&quot;td:nth-child(1) a&quot;) %&gt;%
+    html_attr(&quot;href&quot;)
+  
+  # Concatenate the base URL to the extracted hyperlinks
+  full_hyperlinks_r2 &lt;- paste0(&quot;https://en.wikipedia.org/&quot;, hyperlinks_first_column_r2)
+  
+  # Add a new column &#39;Wikipedia_URL&#39; with the extracted URLs
+  r2_universities$Wikipedia_URL &lt;- full_hyperlinks_r2
+
+####################    
+  # Concatenate the two dataframes
+  universities &lt;- bind_rows(r1_universities, r2_universities)
+  
+  return(universities)
+}
+
+# Example usage:
+url &lt;- &quot;https://en.wikipedia.org/wiki/List_of_research_universities_in_the_United_States&quot;
+result &lt;- scrape_wikipedia_tables(url)
+print(result)</code></pre>
 </div>
 
 

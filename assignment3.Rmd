@@ -16,6 +16,8 @@ knitr::opts_chunk$set(echo = FALSE)
 # Install/load packages
 #####################################
 
+library(rvest)
+library(tidyverse)
 
 ```
 
@@ -28,19 +30,112 @@ The GitHub repository for **this assignment** can be found [here](https://github
 ## Exercise 1
 
 
+
+
 ## Exercise 2
 
-Write an automatic webscraping function in R that constructs a table (as e.g. a data frame, a tibble, or a data table) of all R1 (Very High Research Activity) and R2 (High Research Activity) Research Universities in the United States of America. These data can be found on wikipedia.
+### a. Gathering structured data
+Write an automatic webscraping function in R that constructs a table (as e.g. a data frame, a tibble, or a data table) of all R1 (Very High Research Activity) **and** R2 (High Research Activity) Research Universities in the United States of America. These data can be found on [wikipedia](https://en.wikipedia.org/wiki/List_of_research_universities_in_the_United_States). 
 
 Your initial scraper should collect five variables:
 
-I. The university’s name
-It’s status (public or private)
-The city in which it is located
-The state in which it is located
-The URL of the university’s dedicated Wikipedia page
+i. The university’s name
+ii. It’s status (public or private)
+iii. The city in which it is located
+iv. The state in which it is located
+v. The URL of the university’s dedicated Wikipedia page
 
 
+#### Write the function
+
+
+```{r}
+
+scrape_wikipedia_tables <- function(url) {
+  # Storing the URL's HTML code
+  html_content <- read_html(url)
+  
+  # Extracting tables in the document
+  tab <- html_table(html_content, fill = TRUE)
+  
+  # The website has three tables but we are only interested in the first two
+  # Extract the first two tables
+  first_two_tables <- tab[1:2]
+  
+  # Save the two dataframes in first_two_tables as tibbles
+  
+  # r1_universities
+  r1_universities <- as_tibble(first_two_tables[[1]])
+  
+  # r2_universities
+  # Since the second table has 5 columns, one of which includes no data, we need to only select the first four columns
+  r2_universities <- as_tibble(first_two_tables[[2]][, 1:4])
+  
+##############################  
+  # Extract hyperlinks from the first column of the first table
+  table_nodes_r1 <- html_content %>%
+    html_nodes("#mw-content-text > div.mw-content-ltr.mw-parser-output > table:nth-child(19)")
+  
+  # Assuming you want to extract hyperlinks from the first table
+  first_table_r1 <- table_nodes_r1[[1]]
+  
+  hyperlinks_first_column_r1 <- first_table_r1 %>%
+    html_nodes("td:nth-child(1) a") %>%
+    html_attr("href")
+  
+  # Concatenate the base URL to the extracted hyperlinks
+  full_hyperlinks_r1 <- paste0("https://en.wikipedia.org/", hyperlinks_first_column_r1)
+  
+  # Add a new column 'Wikipedia_URL' with the extracted URLs
+  r1_universities$Wikipedia_URL <- full_hyperlinks_r1
+  
+  # Extract hyperlinks from the first column of the second table
+  table_nodes_r2 <- html_content %>%
+    html_nodes("#mw-content-text > div.mw-content-ltr.mw-parser-output > table:nth-child(27)")
+  
+  # Assuming you want to extract hyperlinks from the first table
+  first_table_r2 <- table_nodes_r2[[1]]
+  
+  hyperlinks_first_column_r2 <- first_table_r2 %>%
+    html_nodes("td:nth-child(1) a") %>%
+    html_attr("href")
+  
+  # Concatenate the base URL to the extracted hyperlinks
+  full_hyperlinks_r2 <- paste0("https://en.wikipedia.org/", hyperlinks_first_column_r2)
+  
+  # Add a new column 'Wikipedia_URL' with the extracted URLs
+  r2_universities$Wikipedia_URL <- full_hyperlinks_r2
+
+####################    
+  # Concatenate the two dataframes
+  universities <- bind_rows(r1_universities, r2_universities)
+  
+  return(universities)
+}
+
+# Example usage:
+url <- "https://en.wikipedia.org/wiki/List_of_research_universities_in_the_United_States"
+result <- scrape_wikipedia_tables(url)
+print(result)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                   
 ## Exercise 3
 
 
