@@ -18,7 +18,7 @@ knitr::opts_chunk$set(echo = FALSE)
 
 library(rvest)
 library(tidyverse)
-
+library(purrr)
 ```
 
 
@@ -46,12 +46,14 @@ iv. The state in which it is located
 v. The URL of the university’s dedicated Wikipedia page
 
 
-#### Write the function
+#### Write and run the automatic webscraping function
 
 
 ```{r combine the two tables using for loops with url}
 
-scrape_wikipedia_tables <- function(url, table_indices) {
+scrape_wikipedia_tables <- function(url) {
+  table_indices <- c(19, 27)
+  
   # Storing the URL's HTML code
   html_content <- read_html(url)
   
@@ -72,6 +74,7 @@ scrape_wikipedia_tables <- function(url, table_indices) {
   hyperlinks_list <- list()
 
   # Iterate over the table indices and extract hyperlinks
+
   for (index in table_indices) {
     table_nodes <- html_content %>%
       html_nodes(paste("#mw-content-text > div.mw-content-ltr.mw-parser-output > table:nth-child(", index, ")", sep = ""))
@@ -100,20 +103,265 @@ scrape_wikipedia_tables <- function(url, table_indices) {
   return(empty_tibble)
 }
 
-# Test the function using the url from the Wikipedia website and the two tables of interest:
+# Run the function using the URL from the Wikipedia page
 url <- "https://en.wikipedia.org/wiki/List_of_research_universities_in_the_United_States"
-indices_of_interest <- c(19, 27)
 
-result <- scrape_wikipedia_tables(url, indices_of_interest)
+result <- scrape_wikipedia_tables(url)
 print(head(result))
 
+```
+
+
+### b. Gathering unstructured data
+Extend your webscraping function (or create a new function) so that it navigates to the dedicated Wikipedia page for each university, and captures three additional variables: 
+
+vi. The geographic coordinates of the (main) university campus
+vii. The endowment of the university in USD dollars
+viii. The total number of students (including both undergraduate and postgraduate)
+
+
+
+
+```{r code for creating the tibble of previous exercise}
+url <- "https://en.wikipedia.org/wiki/List_of_research_universities_in_the_United_States"
+table_indices <- c(19, 27)
+  
+# Storing the URL's HTML code
+html_content <- read_html(url)
+  
+# Extracting all tables in the document 
+tab <- html_table(html_content, fill = TRUE)
+
+# Extract only the tables of interest given the input table_indices
+selected_tables <- tab[1:length(table_indices)]
+
+# Iterate over tables and bind rows
+empty_tibble <- tibble()
+for (i in 1:length(selected_tables)) {
+  current_table <- as_tibble(selected_tables[[i]][, 1:4])
+  empty_tibble <- bind_rows(empty_tibble, current_table)
+}
+
+# Initialize an empty list to store hyperlinks
+hyperlinks_list <- list()
+
+# Iterate over the table indices and extract hyperlinks
+for (index in table_indices) {
+  table_nodes <- html_content %>%
+    html_nodes(paste("#mw-content-text > div.mw-content-ltr.mw-parser-output > table:nth-child(", index, ")", sep = ""))
+  
+  # Assuming you want to extract hyperlinks from the first table
+  current_node_set <- table_nodes[[1]]
+
+  hyperlinks_current_node <- current_node_set %>%
+    html_nodes("td:nth-child(1) a") %>%
+    html_attr("href")
+
+  # Append the hyperlinks to the list
+  hyperlinks_list <- c(hyperlinks_list, hyperlinks_current_node)
+}
+
+# Unlist to flatten the list
+hyperlinks_list <- unlist(hyperlinks_list, recursive = FALSE)
+
+# Concatenate the base URL to the extracted hyperlinks
+hyperlinks_list <- paste0("https://en.wikipedia.org/", hyperlinks_list)
+  
+# Add a new column 'Wikipedia_URL' with the extracted URLs
+empty_tibble$Wikipedia_URL <- hyperlinks_list
+print(empty_tibble)
 ```
 
 
 
 
 
-                   
+
+Geographic Location
+
+
+```{r}
+
+# Exercise 2b
+
+
+### geographic location
+
+university_data <- list()
+
+for (hyperlink in hyperlinks_list) {
+  university_page <- read_html(hyperlink)
+   
+  # Extract the geographic location using the class selector 'geo_default'
+  geographic_location <- university_page %>%
+    html_nodes(".geo-dec") %>%
+    html_text() %>%
+    unique()
+ 
+  # Store the scraped information in a list
+  university_data <- append(university_data, list(geographic_location))
+  
+}
+
+#empty_tibble <- empty_tibble %>%
+#  mutate(Geographic_Location = NA)
+
+# Add a new column 'Geographic_Location' with the scraped data
+empty_tibble$Geographic_Location <- university_data
+
+# The new variable Geographic_Location is a list of coordinate sets. We only want to keep the first set of coordinates
+# Assuming 'your_tibble' is your existing tibble with a "Geographic_Location" column
+empty_tibble <- empty_tibble %>%
+  mutate(Geographic_Location = map_chr(Geographic_Location, ~ .[1]))
+```
+
+Endowment
+
+```{r}
+# Exercise 2b
+
+
+### Endowment and budget
+
+endowment_data <- list()
+
+for (hyperlink in hyperlinks_list) {
+  university_page <- read_html(hyperlink)
+   
+  # Extract the endowment based on text content (entries with a dollar sign)
+  endowment <- university_page %>%
+    html_nodes("table.infobox th:contains('Endowment') + td") %>%
+    html_text() %>%
+    unique()
+
+  # Check if 'Endowment' entry exists, if not, extract 'Budget'
+  if (length(endowment) == 0) {
+    budget <- university_page %>%
+      html_nodes("table.infobox th:contains('Budget') + td") %>%
+      html_text() %>%
+      unique()
+
+    endowment_data <- append(endowment_data, list(budget))
+  } else {
+    endowment_data <- append(endowment_data, list(endowment))
+  }
+}
+
+# Add a new column 'Endowment' with the scraped data
+empty_tibble$Endowment <- endowment_data
+empty_tibble <- empty_tibble %>%
+  mutate(Endowment = map_chr(Endowment, ~ .[1]))
+
+
+```
+
+
+NOTE: For some unis, there is no data on the endowment that is available on the wikipedia website, for instance University of Missouri–St. Louis	
+
+
+
+Total number of students 
+
+
+Try through post + undergrad first
+
+
+```{r}
+
+# Exercise 2b
+
+
+### Students
+
+undergraduates_data <- list()
+postgraduates_data <- list()
+
+for (hyperlink in hyperlinks_list) {
+  university_page <- read_html(hyperlink)
+  
+  # Undergraduates 
+  # Extract the number of undergraduate students
+  undergraduates <- university_page %>%
+    html_nodes("table.infobox th:contains('Undergraduates') + td") %>%
+    html_text() %>%
+    unique()
+
+  # Extract only the numbers using regular expressions
+  cleaned_undergraduates <- str_extract(undergraduates, "[\\d,]+")
+  
+  # Assign NA if cleaned_undergraduates is empty
+  cleaned_undergraduates <- ifelse(length(cleaned_undergraduates) == 0, NA, cleaned_undergraduates)
+  
+  undergraduates_data <- append(undergraduates_data, list(cleaned_undergraduates))
+
+  
+  # Undergraduates 
+  # Extract the number of undergraduate students
+  postgraduates <- university_page %>%
+    html_nodes("table.infobox th:contains('Postgraduates') + td") %>%
+    html_text() %>%
+    unique()
+
+  # Extract only the numbers using regular expressions
+  cleaned_postgraduates <- str_extract(postgraduates, "[\\d,]+")
+  
+  # Assign NA if cleaned_undergraduates is empty
+  cleaned_postgraduates <- ifelse(length(cleaned_postgraduates) == 0, NA, cleaned_postgraduates)
+  
+  postgraduates_data <- append(postgraduates_data, list(cleaned_postgraduates))
+
+}
+
+# Remove commas from the extracted data and convert to numeric
+empty_tibble$Undergraduates <- as.numeric(gsub(",", "", unlist(undergraduates_data)))
+
+empty_tibble$Postgraduates <- as.numeric(gsub(",", "", unlist(postgraduates_data)))
+
+# Create a new column 'Students' as the sum of Undergraduates and Postgraduates
+empty_tibble$Students <- ifelse(is.na(empty_tibble$Undergraduates), 
+                                empty_tibble$Postgraduates, 
+                                ifelse(is.na(empty_tibble$Postgraduates), 
+                                       empty_tibble$Undergraduates, 
+                                       empty_tibble$Undergraduates + empty_tibble$Postgraduates))
+
+empty_tibble
+```
+
+
+
+
+If both undergraduates and graduates are na, we will scrape "students" from the website
+
+```{r}
+
+students_data <- list()
+
+for (hyperlink in hyperlinks_list) {
+  university_page <- read_html(hyperlink)
+   
+  # Extract the students
+  students <- university_page %>%
+    html_nodes("table.infobox th:contains('Students') + td") %>%
+    html_text() %>%
+    unique()
+
+  # Extract only the numbers using regular expressions
+  cleaned_students <- as.numeric(gsub(",", "", str_extract(students, "[\\d,]+")))
+  
+  students_data <- append(students_data, list(cleaned_students))
+}
+
+# Check if any element in 'Students' is NA before assigning
+if (any(is.na(empty_tibble$Students))) {
+  empty_tibble$Students[is.na(empty_tibble$Students)] <- unlist(students_data)
+}
+```
+
+
+
+
+
+
 ## Exercise 3
 
 

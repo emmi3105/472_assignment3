@@ -382,8 +382,8 @@ found on <a href="https://en.wikipedia.org/wiki/List_of_research_universities_in
 <li>The state in which it is located</li>
 <li>The URL of the university’s dedicated Wikipedia page</li>
 </ol>
-<div id="write-the-function" class="section level4">
-<h4>Write the function</h4>
+<div id="write-and-run-the-automatic-webscraping-function" class="section level4">
+<h4>Write and run the automatic webscraping function</h4>
 <pre><code>## # A tibble: 6 × 5
 ##   Institution              Control              City         State Wikipedia_URL
 ##   &lt;chr&gt;                    &lt;chr&gt;                &lt;chr&gt;        &lt;chr&gt; &lt;chr&gt;        
@@ -394,6 +394,59 @@ found on <a href="https://en.wikipedia.org/wiki/List_of_research_universities_in
 ## 5 Boston College           Private (non-profit) Chestnut Hi… MA    https://en.w…
 ## 6 Boston University        Private (non-profit) Boston       MA    https://en.w…</code></pre>
 </div>
+</div>
+<div id="b.-gathering-unstructured-data" class="section level3">
+<h3>b. Gathering unstructured data</h3>
+<p>Extend your webscraping function (or create a new function) so that
+it navigates to the dedicated Wikipedia page for each university, and
+captures three additional variables:</p>
+<ol start="6" style="list-style-type: lower-roman">
+<li>The geographic coordinates of the (main) university campus</li>
+<li>The endowment of the university in USD dollars</li>
+<li>The total number of students (including both undergraduate and
+postgraduate)</li>
+</ol>
+<pre><code>## # A tibble: 279 × 5
+##    Institution                        Control          City  State Wikipedia_URL
+##    &lt;chr&gt;                              &lt;chr&gt;            &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;        
+##  1 Arizona State University           Public           Tempe AZ    https://en.w…
+##  2 Auburn University                  Public           Aubu… AL    https://en.w…
+##  3 Baylor University                  Private (non-pr… Waco  TX    https://en.w…
+##  4 Binghamton University              Public           Vest… NY    https://en.w…
+##  5 Boston College                     Private (non-pr… Ches… MA    https://en.w…
+##  6 Boston University                  Private (non-pr… Bost… MA    https://en.w…
+##  7 Brandeis University                Private (non-pr… Walt… MA    https://en.w…
+##  8 Brown University                   Private (non-pr… Prov… RI    https://en.w…
+##  9 California Institute of Technology Private (non-pr… Pasa… CA    https://en.w…
+## 10 Carnegie Mellon University         Private (non-pr… Pitt… PA    https://en.w…
+## # ℹ 269 more rows</code></pre>
+<p>Geographic Location</p>
+<p>Endowment</p>
+<p>NOTE: For some unis, there is no data on the endowment that is
+available on the wikipedia website, for instance University of
+Missouri–St. Louis</p>
+<p>Total number of students</p>
+<p>Try through post + undergrad first</p>
+<pre><code>## # A tibble: 279 × 10
+##    Institution   Control City  State Wikipedia_URL Geographic_Location Endowment
+##    &lt;chr&gt;         &lt;chr&gt;   &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;         &lt;chr&gt;               &lt;chr&gt;    
+##  1 Arizona Stat… Public  Tempe AZ    https://en.w… 33.4209°N 111.9340… $1.47 bi…
+##  2 Auburn Unive… Public  Aubu… AL    https://en.w… 32.603°N 85.486°W   $1.05 bi…
+##  3 Baylor Unive… Privat… Waco  TX    https://en.w… 31.548°N 97.116°W   $1.97 bi…
+##  4 Binghamton U… Public  Vest… NY    https://en.w… 42.0888°N 75.9670°W $ 148.1 …
+##  5 Boston Colle… Privat… Ches… MA    https://en.w… 42.33500°N 71.1702… $3.3 bil…
+##  6 Boston Unive… Privat… Bost… MA    https://en.w… 42.34889°N 71.1002… $3.2 bil…
+##  7 Brandeis Uni… Privat… Walt… MA    https://en.w… 42.365664°N 71.259… $1.20 bi…
+##  8 Brown Univer… Privat… Prov… RI    https://en.w… 41.82611°N 71.4030… $6.6 bil…
+##  9 California I… Privat… Pasa… CA    https://en.w… 34.13750°N 118.125… $4.6 bil…
+## 10 Carnegie Mel… Privat… Pitt… PA    https://en.w… 40.44250°N 79.9433… $3.0 bil…
+## # ℹ 269 more rows
+## # ℹ 3 more variables: Undergraduates &lt;dbl&gt;, Postgraduates &lt;dbl&gt;, Students &lt;dbl&gt;</code></pre>
+<p>If both undergraduates and graduates are na, we will scrape
+“students” from the website</p>
+<pre><code>## Warning in empty_tibble$Students[is.na(empty_tibble$Students)] &lt;-
+## unlist(students_data): number of items to replace is not a multiple of
+## replacement length</code></pre>
 </div>
 </div>
 <div id="exercise-3" class="section level2">
@@ -419,9 +472,11 @@ knitr::opts_chunk$set(echo = FALSE)
 
 library(rvest)
 library(tidyverse)
+library(purrr)
 
-
-scrape_wikipedia_tables &lt;- function(url, table_indices) {
+scrape_wikipedia_tables &lt;- function(url) {
+  table_indices &lt;- c(19, 27)
+  
   # Storing the URL&#39;s HTML code
   html_content &lt;- read_html(url)
   
@@ -442,6 +497,7 @@ scrape_wikipedia_tables &lt;- function(url, table_indices) {
   hyperlinks_list &lt;- list()
 
   # Iterate over the table indices and extract hyperlinks
+
   for (index in table_indices) {
     table_nodes &lt;- html_content %&gt;%
       html_nodes(paste(&quot;#mw-content-text &gt; div.mw-content-ltr.mw-parser-output &gt; table:nth-child(&quot;, index, &quot;)&quot;, sep = &quot;&quot;))
@@ -470,12 +526,206 @@ scrape_wikipedia_tables &lt;- function(url, table_indices) {
   return(empty_tibble)
 }
 
-# Test the function using the url from the Wikipedia website and the two tables of interest:
+# Run the function using the URL from the Wikipedia page
 url &lt;- &quot;https://en.wikipedia.org/wiki/List_of_research_universities_in_the_United_States&quot;
-indices_of_interest &lt;- c(19, 27)
 
-result &lt;- scrape_wikipedia_tables(url, indices_of_interest)
-print(head(result))</code></pre>
+result &lt;- scrape_wikipedia_tables(url)
+print(head(result))
+
+url &lt;- &quot;https://en.wikipedia.org/wiki/List_of_research_universities_in_the_United_States&quot;
+table_indices &lt;- c(19, 27)
+  
+# Storing the URL&#39;s HTML code
+html_content &lt;- read_html(url)
+  
+# Extracting all tables in the document 
+tab &lt;- html_table(html_content, fill = TRUE)
+
+# Extract only the tables of interest given the input table_indices
+selected_tables &lt;- tab[1:length(table_indices)]
+
+# Iterate over tables and bind rows
+empty_tibble &lt;- tibble()
+for (i in 1:length(selected_tables)) {
+  current_table &lt;- as_tibble(selected_tables[[i]][, 1:4])
+  empty_tibble &lt;- bind_rows(empty_tibble, current_table)
+}
+
+# Initialize an empty list to store hyperlinks
+hyperlinks_list &lt;- list()
+
+# Iterate over the table indices and extract hyperlinks
+for (index in table_indices) {
+  table_nodes &lt;- html_content %&gt;%
+    html_nodes(paste(&quot;#mw-content-text &gt; div.mw-content-ltr.mw-parser-output &gt; table:nth-child(&quot;, index, &quot;)&quot;, sep = &quot;&quot;))
+  
+  # Assuming you want to extract hyperlinks from the first table
+  current_node_set &lt;- table_nodes[[1]]
+
+  hyperlinks_current_node &lt;- current_node_set %&gt;%
+    html_nodes(&quot;td:nth-child(1) a&quot;) %&gt;%
+    html_attr(&quot;href&quot;)
+
+  # Append the hyperlinks to the list
+  hyperlinks_list &lt;- c(hyperlinks_list, hyperlinks_current_node)
+}
+
+# Unlist to flatten the list
+hyperlinks_list &lt;- unlist(hyperlinks_list, recursive = FALSE)
+
+# Concatenate the base URL to the extracted hyperlinks
+hyperlinks_list &lt;- paste0(&quot;https://en.wikipedia.org/&quot;, hyperlinks_list)
+  
+# Add a new column &#39;Wikipedia_URL&#39; with the extracted URLs
+empty_tibble$Wikipedia_URL &lt;- hyperlinks_list
+print(empty_tibble)
+
+# Exercise 2b
+
+
+### geographic location
+
+university_data &lt;- list()
+
+for (hyperlink in hyperlinks_list) {
+  university_page &lt;- read_html(hyperlink)
+   
+  # Extract the geographic location using the class selector &#39;geo_default&#39;
+  geographic_location &lt;- university_page %&gt;%
+    html_nodes(&quot;.geo-dec&quot;) %&gt;%
+    html_text() %&gt;%
+    unique()
+ 
+  # Store the scraped information in a list
+  university_data &lt;- append(university_data, list(geographic_location))
+  
+}
+
+#empty_tibble &lt;- empty_tibble %&gt;%
+#  mutate(Geographic_Location = NA)
+
+# Add a new column &#39;Geographic_Location&#39; with the scraped data
+empty_tibble$Geographic_Location &lt;- university_data
+
+# The new variable Geographic_Location is a list of coordinate sets. We only want to keep the first set of coordinates
+# Assuming &#39;your_tibble&#39; is your existing tibble with a &quot;Geographic_Location&quot; column
+empty_tibble &lt;- empty_tibble %&gt;%
+  mutate(Geographic_Location = map_chr(Geographic_Location, ~ .[1]))
+# Exercise 2b
+
+
+### Endowment and budget
+
+endowment_data &lt;- list()
+
+for (hyperlink in hyperlinks_list) {
+  university_page &lt;- read_html(hyperlink)
+   
+  # Extract the endowment based on text content (entries with a dollar sign)
+  endowment &lt;- university_page %&gt;%
+    html_nodes(&quot;table.infobox th:contains(&#39;Endowment&#39;) + td&quot;) %&gt;%
+    html_text() %&gt;%
+    unique()
+
+  # Check if &#39;Endowment&#39; entry exists, if not, extract &#39;Budget&#39;
+  if (length(endowment) == 0) {
+    budget &lt;- university_page %&gt;%
+      html_nodes(&quot;table.infobox th:contains(&#39;Budget&#39;) + td&quot;) %&gt;%
+      html_text() %&gt;%
+      unique()
+
+    endowment_data &lt;- append(endowment_data, list(budget))
+  } else {
+    endowment_data &lt;- append(endowment_data, list(endowment))
+  }
+}
+
+# Add a new column &#39;Endowment&#39; with the scraped data
+empty_tibble$Endowment &lt;- endowment_data
+empty_tibble &lt;- empty_tibble %&gt;%
+  mutate(Endowment = map_chr(Endowment, ~ .[1]))
+
+
+
+# Exercise 2b
+
+
+### Students
+
+undergraduates_data &lt;- list()
+postgraduates_data &lt;- list()
+
+for (hyperlink in hyperlinks_list) {
+  university_page &lt;- read_html(hyperlink)
+  
+  # Undergraduates 
+  # Extract the number of undergraduate students
+  undergraduates &lt;- university_page %&gt;%
+    html_nodes(&quot;table.infobox th:contains(&#39;Undergraduates&#39;) + td&quot;) %&gt;%
+    html_text() %&gt;%
+    unique()
+
+  # Extract only the numbers using regular expressions
+  cleaned_undergraduates &lt;- str_extract(undergraduates, &quot;[\\d,]+&quot;)
+  
+  # Assign NA if cleaned_undergraduates is empty
+  cleaned_undergraduates &lt;- ifelse(length(cleaned_undergraduates) == 0, NA, cleaned_undergraduates)
+  
+  undergraduates_data &lt;- append(undergraduates_data, list(cleaned_undergraduates))
+
+  
+  # Undergraduates 
+  # Extract the number of undergraduate students
+  postgraduates &lt;- university_page %&gt;%
+    html_nodes(&quot;table.infobox th:contains(&#39;Postgraduates&#39;) + td&quot;) %&gt;%
+    html_text() %&gt;%
+    unique()
+
+  # Extract only the numbers using regular expressions
+  cleaned_postgraduates &lt;- str_extract(postgraduates, &quot;[\\d,]+&quot;)
+  
+  # Assign NA if cleaned_undergraduates is empty
+  cleaned_postgraduates &lt;- ifelse(length(cleaned_postgraduates) == 0, NA, cleaned_postgraduates)
+  
+  postgraduates_data &lt;- append(postgraduates_data, list(cleaned_postgraduates))
+
+}
+
+# Remove commas from the extracted data and convert to numeric
+empty_tibble$Undergraduates &lt;- as.numeric(gsub(&quot;,&quot;, &quot;&quot;, unlist(undergraduates_data)))
+
+empty_tibble$Postgraduates &lt;- as.numeric(gsub(&quot;,&quot;, &quot;&quot;, unlist(postgraduates_data)))
+
+# Create a new column &#39;Students&#39; as the sum of Undergraduates and Postgraduates
+empty_tibble$Students &lt;- ifelse(is.na(empty_tibble$Undergraduates), 
+                                empty_tibble$Postgraduates, 
+                                ifelse(is.na(empty_tibble$Postgraduates), 
+                                       empty_tibble$Undergraduates, 
+                                       empty_tibble$Undergraduates + empty_tibble$Postgraduates))
+
+empty_tibble
+
+students_data &lt;- list()
+
+for (hyperlink in hyperlinks_list) {
+  university_page &lt;- read_html(hyperlink)
+   
+  # Extract the students
+  students &lt;- university_page %&gt;%
+    html_nodes(&quot;table.infobox th:contains(&#39;Students&#39;) + td&quot;) %&gt;%
+    html_text() %&gt;%
+    unique()
+
+  # Extract only the numbers using regular expressions
+  cleaned_students &lt;- as.numeric(gsub(&quot;,&quot;, &quot;&quot;, str_extract(students, &quot;[\\d,]+&quot;)))
+  
+  students_data &lt;- append(students_data, list(cleaned_students))
+}
+
+# Check if any element in &#39;Students&#39; is NA before assigning
+if (any(is.na(empty_tibble$Students))) {
+  empty_tibble$Students[is.na(empty_tibble$Students)] &lt;- unlist(students_data)
+}</code></pre>
 </div>
 
 
