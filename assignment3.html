@@ -364,6 +364,36 @@ found <a href="https://github.com/emmi3105/472_assignment3">here</a>.</p>
 </div>
 <div id="exercise-1" class="section level2">
 <h2>Exercise 1</h2>
+<p>This assignment will take us through a workflow that a data scientist
+might encounter in the real world, from data collection right through to
+analysis. Throughout this assignment we are going to use a local
+relational database to store a variety of different but related tables
+that we collect and may want to combine in various ways. We will want to
+ensure that each table within our database can be joined to every other
+table using a <code>primary key</code>.</p>
+<p>We will start by creating an empty local relational database. You
+should store this new database in a ‘database’ folder that you create
+within your assignment folder. Follow these steps:</p>
+<ol style="list-style-type: decimal">
+<li>Use the <code>DBI::dbConnect()</code> function in <code>R</code> to
+create a new <code>SQLite</code> database (either
+<code>YOUR_DB_NAME.sqlite</code> or <code>YOUR_DB_NAME.db</code>) in
+your database folder.</li>
+<li>Use the <code>file.exists()</code> function in <code>R</code> to
+check for the existence of your relational database.</li>
+</ol>
+<p>Include in the main text of your <code>.html</code> submission the
+code that created the database <strong>and</strong> the code that checks
+for its existence <strong>and</strong> the output of that check.</p>
+<div id="create-a-local-relational-database" class="section level3">
+<h3>Create a local relational database</h3>
+<pre class="r"><code># Create database
+db &lt;- dbConnect(RSQLite::SQLite(), &quot;universities_db.sqlite&quot;)
+
+# Use file.exists() to check the existence of the relational database
+print(file.exists(&quot;universities_db.sqlite&quot;))</code></pre>
+<pre><code>## [1] TRUE</code></pre>
+</div>
 </div>
 <div id="exercise-2" class="section level2">
 <h2>Exercise 2</h2>
@@ -420,33 +450,256 @@ postgraduate)</li>
 ##  9 California Institute of Technology Private (non-pr… Pasa… CA    https://en.w…
 ## 10 Carnegie Mellon University         Private (non-pr… Pitt… PA    https://en.w…
 ## # ℹ 269 more rows</code></pre>
-<p>Geographic Location</p>
-<p>Endowment</p>
-<p>NOTE: For some unis, there is no data on the endowment that is
-available on the wikipedia website, for instance University of
-Missouri–St. Louis</p>
-<p>Total number of students</p>
-<p>Try through post + undergrad first</p>
+<div id="geographic-location" class="section level4">
+<h4>Geographic Location</h4>
+<p><strong>Note</strong>: There are missing values. To be exact, the <a href="https://en.wikipedia.org//wiki/University_of_Colorado_Denver">University
+of Colorado Denver</a> and the <a href="https://en.wikipedia.org//wiki/University_of_Mississippi">University
+of Mississippi</a> do not have information on the geographic location on
+their wikipedia websites.</p>
+</div>
+<div id="endowment" class="section level4">
+<h4>Endowment</h4>
+<p><strong>Note</strong>: For some unis, there is no data on the
+endowment that is available on the wikipedia website. More precisely,
+the <a href="https://en.wikipedia.org//wiki/Air_Force_Institute_of_Technology">Airforce
+Institute of Technology</a>, <a href="https://en.wikipedia.org/wiki/Azusa_Pacific_University">Azusa
+Pacific University</a>, <a href="https://en.wikipedia.org//wiki/LIU_Post">Long Island
+University</a>, and the <a href="https://en.wikipedia.org//wiki/University_of_Missouri%E2%80%93St._Louis">University
+of Missouri–St. Louis</a> do not have information on the website on
+endowment/budget.</p>
+</div>
+<div id="total-number-of-students" class="section level4">
+<h4>Total number of students</h4>
+<p>On some websites, the total student body is not declared in a
+comprehensive way because it is split up by the different campusses of
+the university. Therefore, it is easier to scrape the data by adding the
+number of postgraduates and undergraduates than to write a function that
+can add all of the student bodies from different campusses of the
+individual universities. To ensure that also universities that only have
+postgraduates or undergraduates, and universities which only have a
+number for the total student body on their website, the code is
+modified. Firstly, an if-statement will ensure that for those instances
+with NA’s for either variable postgraduates or undergraduates, the
+number from the variable without the NA is declared as the total student
+body. Secondly, for the instances that only include data on the total
+student body on the website, another webscraping is formulated that
+scrapes the “Students” data from the Wikipedia website and then adds
+this to the variable in our scraped data set.</p>
 <pre><code>## # A tibble: 279 × 10
 ##    Institution   Control City  State Wikipedia_URL Geographic_Location Endowment
 ##    &lt;chr&gt;         &lt;chr&gt;   &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;         &lt;chr&gt;               &lt;chr&gt;    
-##  1 Arizona Stat… Public  Tempe AZ    https://en.w… 33.4209°N 111.9340… $1.47 bi…
-##  2 Auburn Unive… Public  Aubu… AL    https://en.w… 32.603°N 85.486°W   $1.05 bi…
-##  3 Baylor Unive… Privat… Waco  TX    https://en.w… 31.548°N 97.116°W   $1.97 bi…
-##  4 Binghamton U… Public  Vest… NY    https://en.w… 42.0888°N 75.9670°W $ 148.1 …
-##  5 Boston Colle… Privat… Ches… MA    https://en.w… 42.33500°N 71.1702… $3.3 bil…
-##  6 Boston Unive… Privat… Bost… MA    https://en.w… 42.34889°N 71.1002… $3.2 bil…
-##  7 Brandeis Uni… Privat… Walt… MA    https://en.w… 42.365664°N 71.259… $1.20 bi…
-##  8 Brown Univer… Privat… Prov… RI    https://en.w… 41.82611°N 71.4030… $6.6 bil…
-##  9 California I… Privat… Pasa… CA    https://en.w… 34.13750°N 118.125… $4.6 bil…
-## 10 Carnegie Mel… Privat… Pitt… PA    https://en.w… 40.44250°N 79.9433… $3.0 bil…
+##  1 Arizona Stat… Public  Tempe AZ    https://en.w… 33.4209°N 111.9340… &quot;$1.47 b…
+##  2 Auburn Unive… Public  Aubu… AL    https://en.w… 32.603°N 85.486°W   &quot;$1.05 b…
+##  3 Baylor Unive… Privat… Waco  TX    https://en.w… 31.548°N 97.116°W   &quot;$1.97 b…
+##  4 Binghamton U… Public  Vest… NY    https://en.w… 42.0888°N 75.9670°W &quot;$ 148.1…
+##  5 Boston Colle… Privat… Ches… MA    https://en.w… 42.33500°N 71.1702… &quot;$3.3 bi…
+##  6 Boston Unive… Privat… Bost… MA    https://en.w… 42.34889°N 71.1002… &quot;$3.2 bi…
+##  7 Brandeis Uni… Privat… Walt… MA    https://en.w… 42.365664°N 71.259… &quot;$1.20 b…
+##  8 Brown Univer… Privat… Prov… RI    https://en.w… 41.82611°N 71.4030… &quot;$6.6 bi…
+##  9 California I… Privat… Pasa… CA    https://en.w… 34.13750°N 118.125… &quot;$4.6 bi…
+## 10 Carnegie Mel… Privat… Pitt… PA    https://en.w… 40.44250°N 79.9433… &quot;$3.0 bi…
 ## # ℹ 269 more rows
 ## # ℹ 3 more variables: Undergraduates &lt;dbl&gt;, Postgraduates &lt;dbl&gt;, Students &lt;dbl&gt;</code></pre>
-<p>If both undergraduates and graduates are na, we will scrape
-“students” from the website</p>
+<p>If both undergraduates and graduates are missing on the respective
+website, we will scrape “Students” from the website.</p>
 <pre><code>## Warning in empty_tibble$Students[is.na(empty_tibble$Students)] &lt;-
 ## unlist(students_data): number of items to replace is not a multiple of
 ## replacement length</code></pre>
+</div>
+</div>
+<div id="c.-data-munging" class="section level3">
+<h3>c. Data munging</h3>
+<p>Download from the course website the <code>ivyleague.csv</code> file
+and store it appropriately on your local machine. We are going to use
+this file to focus our attention only on the subset of U.S. universities
+that are known as the “Ivy League.”<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a> This file includes a
+<strong>shortened</strong> version of each university’s name, the County
+and State in which the university’s main campus is located (we will use
+these variables later), and the university’s Employer Identification
+Number (EIN – we will use this variable later). Call this file into
+<code>R</code> and create three new variables in your main table:</p>
+<ol start="9" style="list-style-type: lower-roman">
+<li>An indicator for whether the university is an Ivy League
+institution</li>
+<li>The university’s county (it would be wise to concatenate both county
+and state into a single string, separated by “,”)</li>
+<li>The university’s EIN (which can be missing for those universities
+not in the Ivy League)</li>
+</ol>
+<div id="read-in-the-data" class="section level4">
+<h4>Read in the data</h4>
+<pre><code>##    uni_name              county         state       ein
+## 1      Penn Philadelphia County  Pennsylvania 231352685
+## 2     Brown   Providence County  Rhode Island  50258809
+## 3  Columbia     New York County      New York 135598093
+## 4   Cornell     Tompkins County      New York 150532082
+## 5 Dartmouth      Grafton County New Hampshire  20222111
+## 6   Harvard    Middlesex County Massachusetts  42103580</code></pre>
+<p>The ivyleagues data contains four variables, namely a
+<strong>shortened</strong> version of each university’s name
+(“uni_name”), the County (“county”) and State (“state”) in which the
+university’s main campus is located, and the university’s Employer
+Identification Number (“ein”). There are six observations in the
+dataset.</p>
+</div>
+<div id="ivy-league-indicator-county-and-ein" class="section level4">
+<h4>Ivy League Indicator, County and EIN</h4>
+<p>Since the names in the ivyleagues data are shortened, writing a
+function that creates another variable indicating wether the observation
+in our tibble is an ivy league does not work properly. For instance, if
+we would check whether the shortened name (in the variable “uni_name”)
+in the ivyleagues data appears in the long name (in the variable
+“Institution”) in our universities data frame, also universities that
+have similar names but are not ivy leagues will be falsely indicated as
+ivys. For example, not only the ivy league university “Columbia
+University” but also the “Teachers College at Columbia University” will
+be indicated as an ivy. To avoid false indications of ivy leagues, we
+will add another variable to the ivyleages data which includes the full
+name of the universities.</p>
+<pre><code>## # A tibble: 8 × 11
+##   Institution    Control City  State Wikipedia_URL Geographic_Location Endowment
+##   &lt;chr&gt;          &lt;chr&gt;   &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;         &lt;chr&gt;               &lt;chr&gt;    
+## 1 Brown Univers… Privat… Prov… RI    https://en.w… 41.82611°N 71.4030… &quot;$6.6 bi…
+## 2 Columbia Univ… Privat… New … NY    https://en.w… 40.80750°N 73.9619… &quot;$13.3 b…
+## 3 Cornell Unive… Privat… Itha… NY    https://en.w… 42.45361°N 76.4738… &quot;$10.0 b…
+## 4 Dartmouth Col… Privat… Hano… NH    https://en.w… 43.70333°N 72.2883… &quot;$8.5 bi…
+## 5 Harvard Unive… Privat… Camb… MA    https://en.w… 42.37444°N 71.1169… &quot;$50.7 b…
+## 6 Princeton Uni… Privat… Prin… NJ    https://en.w… 40.34528°N 74.6561… &quot;$35.8 b…
+## 7 University of… Privat… Phil… PA    https://en.w… 39.95°N 75.19°W     &quot;$21.0 b…
+## 8 Yale Universi… Privat… New … CT    https://en.w… 41.31639°N 72.9222… &quot;$40.7 b…
+## # ℹ 4 more variables: Students &lt;dbl&gt;, EIN &lt;int&gt;, County &lt;chr&gt;, Ivy_League &lt;dbl&gt;</code></pre>
+</div>
+</div>
+<div id="d.-writing-to-your-relational-database" class="section level3">
+<h3>d. Writing to your relational database</h3>
+<p>Once you have combined all of the above data into a single table,
+ensure that it is in a tidy format where each row is a unique
+university, and each column is a variable (of which there should be
+exactly 11). Write this table to your relational database, making sure
+you give it an <strong>appropriate</strong> and <strong>clear</strong>
+name. Remember to ensure you have a <strong>primary key</strong>
+(e.g. the university name) that uniquely identifies each unit
+(university) in your table.</p>
+<p>Create a function to check for the existence and correct
+dimensionality of your written table. The function should take two
+arguments: the name of your database, and the name of your table. If the
+table exists, the function should report as output the number of rows in
+the table, the number of columns in the table, and the names of the
+columns. <strong>For all of Exercise 2</strong> it is sufficient for you
+to include just the code chunk that defines the function and the output
+of the function in the main section of your submitted <code>.html</code>
+file.</p>
+<div id="check-if-the-data-is-tidy" class="section level4">
+<h4>Check if the data is tidy</h4>
+<p>Firstly, we print out the first few lines of the data frame to ensure
+it is in a tidy format.</p>
+<pre><code>## # A tibble: 6 × 11
+##   Institution    Control City  State Wikipedia_URL Geographic_Location Endowment
+##   &lt;chr&gt;          &lt;chr&gt;   &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;         &lt;chr&gt;               &lt;chr&gt;    
+## 1 Arizona State… Public  Tempe AZ    https://en.w… 33.4209°N 111.9340… &quot;$1.47 b…
+## 2 Auburn Univer… Public  Aubu… AL    https://en.w… 32.603°N 85.486°W   &quot;$1.05 b…
+## 3 Baylor Univer… Privat… Waco  TX    https://en.w… 31.548°N 97.116°W   &quot;$1.97 b…
+## 4 Binghamton Un… Public  Vest… NY    https://en.w… 42.0888°N 75.9670°W &quot;$ 148.1…
+## 5 Boston College Privat… Ches… MA    https://en.w… 42.33500°N 71.1702… &quot;$3.3 bi…
+## 6 Boston Univer… Privat… Bost… MA    https://en.w… 42.34889°N 71.1002… &quot;$3.2 bi…
+## # ℹ 4 more variables: Students &lt;dbl&gt;, EIN &lt;int&gt;, County &lt;chr&gt;, Ivy_League &lt;dbl&gt;</code></pre>
+<p>We can see that each row represents a university. To ensure that each
+row is representative of a unique observation, we use unique(). If the
+length of the unique values of the Institution variable in our tibble is
+equal to the length of the variable without using unique(), we can
+confirm that each row has a different value for “Institution” and thus
+does represent a unique observation.</p>
+<pre><code>## [1] &quot;There are 279 unique universities in the dataframe &#39;universities&#39; that are each represented by exactly one row. The data is tidy.&quot;</code></pre>
+<p>To check whether the columns correspond to the 11 variables that we
+are interested in, we use summary().</p>
+<pre><code>##  Institution          Control              City              State          
+##  Length:279         Length:279         Length:279         Length:279        
+##  Class :character   Class :character   Class :character   Class :character  
+##  Mode  :character   Mode  :character   Mode  :character   Mode  :character  
+##                                                                             
+##                                                                             
+##                                                                             
+##                                                                             
+##  Wikipedia_URL      Geographic_Location  Endowment            Students     
+##  Length:279         Length:279          Length:279         Min.   :  1726  
+##  Class :character   Class :character    Class :character   1st Qu.: 11710  
+##  Mode  :character   Mode  :character    Mode  :character   Median : 19618  
+##                                                            Mean   : 24012  
+##                                                            3rd Qu.: 32121  
+##                                                            Max.   :142636  
+##                                                                            
+##       EIN               County            Ivy_League     
+##  Min.   : 20222111   Length:279         Min.   :0.00000  
+##  1st Qu.: 48220002   Class :character   1st Qu.:0.00000  
+##  Median : 98122533   Mode  :character   Median :0.00000  
+##  Mean   :112668604                      Mean   :0.02867  
+##  3rd Qu.:165557687                      3rd Qu.:0.00000  
+##  Max.   :231352685                      Max.   :1.00000  
+##  NA&#39;s   :271</code></pre>
+<p>As we can see, the data is tidy. Each row represents a unique
+university and each column holds one variables. In total, we have 279
+observations and 11 variables.</p>
+</div>
+<div id="write-the-table-to-the-relational-database" class="section level4">
+<h4>Write the table to the relational database</h4>
+<p>We write the table to the relational database “db”. using a simple
+query that selects the first eight rows of the data, we check if the
+addition to the database properly worked. We should receive eight rows
+of data that each hold values for 12 variables. As the unique key, we
+will use the name of the universities, which can be found under
+“Institution”.</p>
+<pre><code>##                Institution              Control          City State
+## 1 Arizona State University               Public         Tempe    AZ
+## 2        Auburn University               Public        Auburn    AL
+## 3        Baylor University Private (non-profit)          Waco    TX
+## 4    Binghamton University               Public        Vestal    NY
+## 5           Boston College Private (non-profit) Chestnut Hill    MA
+## 6        Boston University Private (non-profit)        Boston    MA
+## 7      Brandeis University Private (non-profit)       Waltham    MA
+## 8         Brown University Private (non-profit)    Providence    RI
+##                                             Wikipedia_URL
+## 1 https://en.wikipedia.org//wiki/Arizona_State_University
+## 2        https://en.wikipedia.org//wiki/Auburn_University
+## 3        https://en.wikipedia.org//wiki/Baylor_University
+## 4    https://en.wikipedia.org//wiki/Binghamton_University
+## 5           https://en.wikipedia.org//wiki/Boston_College
+## 6        https://en.wikipedia.org//wiki/Boston_University
+## 7      https://en.wikipedia.org//wiki/Brandeis_University
+## 8         https://en.wikipedia.org//wiki/Brown_University
+##       Geographic_Location        Endowment Students      EIN
+## 1    33.4209°N 111.9340°W   $1.47 billion    142636       NA
+## 2       32.603°N 85.486°W   $1.05 billion     33015       NA
+## 3       31.548°N 97.116°W   $1.97 billion     20626       NA
+## 4     42.0888°N 75.9670°W $ 148.1 million     18148       NA
+## 5   42.33500°N 71.17028°W    $3.3 billion     14570       NA
+## 6   42.34889°N 71.10028°W    $3.2 billion     35527       NA
+## 7 42.365664°N 71.259742°W   $1.20 billion      5558       NA
+## 8   41.82611°N 71.40306°W    $6.6 billion     10425 50258809
+##                            County Ivy_League
+## 1                            &lt;NA&gt;          0
+## 2                            &lt;NA&gt;          0
+## 3                            &lt;NA&gt;          0
+## 4                            &lt;NA&gt;          0
+## 5                            &lt;NA&gt;          0
+## 6                            &lt;NA&gt;          0
+## 7                            &lt;NA&gt;          0
+## 8 Providence County, Rhode Island          1</code></pre>
+</div>
+<div id="create-a-function" class="section level4">
+<h4>Create a function</h4>
+<p>Create a function to check for the existence and correct
+dimensionality of your written table. The function should take two
+arguments: the name of your database, and the name of your table. If the
+table exists, the function should report as output the number of rows in
+the table, the number of columns in the table, and the names of the
+columns. <strong>For all of Exercise 2</strong> it is sufficient for you
+to include just the code chunk that defines the function and the output
+of the function in the main section of your submitted <code>.html</code>
+file.</p>
+<pre><code>## Number of rows: 279 
+## Number of columns: 11 
+## Column names: c(&quot;Institution&quot;, &quot;Control&quot;, &quot;City&quot;, &quot;State&quot;, &quot;Wikipedia_URL&quot;, &quot;Geographic_Location&quot;, &quot;Endowment&quot;, &quot;Students&quot;, &quot;EIN&quot;, &quot;County&quot;, &quot;Ivy_League&quot;)</code></pre>
+</div>
 </div>
 </div>
 <div id="exercise-3" class="section level2">
@@ -473,6 +726,14 @@ knitr::opts_chunk$set(echo = FALSE)
 library(rvest)
 library(tidyverse)
 library(purrr)
+library(DBI)
+library(RSQLite)
+
+# Create database
+db &lt;- dbConnect(RSQLite::SQLite(), &quot;universities_db.sqlite&quot;)
+
+# Use file.exists() to check the existence of the relational database
+print(file.exists(&quot;universities_db.sqlite&quot;))
 
 scrape_wikipedia_tables &lt;- function(url) {
   table_indices &lt;- c(19, 27)
@@ -618,6 +879,17 @@ empty_tibble &lt;- empty_tibble %&gt;%
 
 endowment_data &lt;- list()
 
+# Clean text by removing text within brackets
+clean_text &lt;- function(text) {
+  # Remove text containing brackets within brackets
+  text &lt;- gsub(&quot;\\([^()]*\\)&quot;, &quot;&quot;, text)
+  # Remove text within square brackets
+  text &lt;- gsub(&quot;\\[.*?\\]&quot;, &quot;&quot;, text)
+  # Remove text within round brackets
+  text &lt;- gsub(&quot;\\(.*?\\)&quot;, &quot;&quot;, text)
+  return(text)
+}
+
 for (hyperlink in hyperlinks_list) {
   university_page &lt;- read_html(hyperlink)
    
@@ -625,14 +897,17 @@ for (hyperlink in hyperlinks_list) {
   endowment &lt;- university_page %&gt;%
     html_nodes(&quot;table.infobox th:contains(&#39;Endowment&#39;) + td&quot;) %&gt;%
     html_text() %&gt;%
-    unique()
+    unique() %&gt;%
+    clean_text()
+  
 
   # Check if &#39;Endowment&#39; entry exists, if not, extract &#39;Budget&#39;
   if (length(endowment) == 0) {
     budget &lt;- university_page %&gt;%
       html_nodes(&quot;table.infobox th:contains(&#39;Budget&#39;) + td&quot;) %&gt;%
       html_text() %&gt;%
-      unique()
+      unique() %&gt;%
+      clean_text()
 
     endowment_data &lt;- append(endowment_data, list(budget))
   } else {
@@ -674,8 +949,8 @@ for (hyperlink in hyperlinks_list) {
   undergraduates_data &lt;- append(undergraduates_data, list(cleaned_undergraduates))
 
   
-  # Undergraduates 
-  # Extract the number of undergraduate students
+  # Postgraduates 
+  # Extract the number of postgraduate students
   postgraduates &lt;- university_page %&gt;%
     html_nodes(&quot;table.infobox th:contains(&#39;Postgraduates&#39;) + td&quot;) %&gt;%
     html_text() %&gt;%
@@ -725,7 +1000,100 @@ for (hyperlink in hyperlinks_list) {
 # Check if any element in &#39;Students&#39; is NA before assigning
 if (any(is.na(empty_tibble$Students))) {
   empty_tibble$Students[is.na(empty_tibble$Students)] &lt;- unlist(students_data)
-}</code></pre>
+}
+
+# Remove columns named &#39;Undergraduates&#39; and &#39;Postgraduates&#39;
+empty_tibble &lt;- select(empty_tibble, -Undergraduates, -Postgraduates)
+
+# Read the CSV file into a data frame
+ivyleagues &lt;- read.csv(&quot;ivyleague.csv&quot;)
+
+# Note that I saved the file &quot;ivyleague.csv&quot; in the same folder as this RMarkdown.
+# If the file is located in a different folder, &quot;ivyleague.csv&quot; needs to be modified by including the correct path before reading in the dataa using read.csv
+
+# Display the first few rows of the ivyleagues data
+head(ivyleagues)
+
+# Update the full_name column based on conditions
+ivyleagues &lt;- ivyleagues %&gt;%
+  mutate(
+    full_name = case_when(
+      uni_name == &quot;Penn&quot; ~ &quot;University of Pennsylvania&quot;,
+      uni_name == &quot;Brown&quot; ~ &quot;Brown University&quot;,
+      uni_name == &quot;Columbia&quot; ~ &quot;Columbia University&quot;,
+      uni_name == &quot;Cornell&quot; ~ &quot;Cornell University&quot;,
+      uni_name == &quot;Dartmouth&quot; ~ &quot;Dartmouth College&quot;,
+      uni_name == &quot;Harvard&quot; ~ &quot;Harvard University&quot;,
+      uni_name == &quot;Princeton&quot; ~ &quot;Princeton University&quot;,
+      uni_name == &quot;Yale&quot; ~ &quot;Yale University&quot;,
+    )
+  )
+
+ivyleagues &lt;- ivyleagues %&gt;%
+  mutate(County = ifelse(!is.na(county), paste(county, state, sep = &quot;, &quot;), state))
+
+empty_tibble &lt;- empty_tibble %&gt;%
+  left_join(ivyleagues %&gt;% select(full_name, ein, County), by = c(&quot;Institution&quot; = &quot;full_name&quot;)) %&gt;%
+  mutate(Ivy_League = ifelse(Institution %in% ivyleagues$full_name, 1, 0))
+
+
+empty_tibble &lt;- empty_tibble %&gt;% rename(EIN = ein)
+
+# Filter for the entries that are ivy leagues to check whether the function properly assigned the ivy leagues
+empty_tibble %&gt;%
+  filter(Ivy_League == 1)
+print(head(empty_tibble))
+
+# Check if the rows in the dataframe each hold one unique university 
+if (length(unique(empty_tibble$Institution)) == length(empty_tibble$Institution)) {
+  answer &lt;- sprintf(&quot;There are %d unique universities in the dataframe &#39;universities&#39; that are each represented by exactly one row. The data is tidy.&quot;, length(unique(empty_tibble$Institution)))
+  print(answer)
+} else {
+  print(&quot;Not every row holds the data of a unique university. The data is not tidy.&quot;)
+}
+
+# Check if each column corresponds to one of the 11 variables
+summary(empty_tibble)
+
+# Adding the table to the relational database
+# Only include overwrite = TRUE for practicing purpose
+dbWriteTable(db, &quot;universities&quot;, empty_tibble, overwrite = TRUE)
+
+# Testing that it worked with a simple query
+dbGetQuery(db, &quot;SELECT * FROM universities LIMIT 8&quot;)
+check_table &lt;- function(db, universities){
+  
+  # Execute an SQL query to get the row count
+  query &lt;- paste(&quot;SELECT COUNT(*) FROM&quot;, &quot;universities&quot;)
+  row_count &lt;- dbGetQuery(db, query)[1, 1]
+  
+  # Get the column names
+  column_names &lt;- list(dbListFields(db, &quot;universities&quot;))
+  
+  # Get the column count
+  column_count &lt;- length(unlist(column_names))
+  
+  # Format the string
+  formatted_string &lt;- sprintf(&quot;Number of rows: %s \nNumber of columns: %s \nColumn names: %s&quot;, row_count, column_count, paste(column_names, collapse = &quot;, &quot;))
+  
+  # Remove the c() from the output
+  #formatted_string &lt;- gsub(&quot;^c\\(|\\)$&quot;, &quot;&quot;, formatted_string)
+  
+  # Return the row and column counts
+  return(cat(formatted_string))
+}
+
+check_table(db, universities)
+# Close the database connection
+dbDisconnect(db)</code></pre>
+</div>
+<div class="footnotes footnotes-end-of-document">
+<hr />
+<ol>
+<li id="fn1"><p>We are only narrowing our focus so that we do not do too
+much scraping for no real research purpose, not because the Ivy League
+is particularly important or interesting.<a href="#fnref1" class="footnote-back">↩︎</a></p></li>
+</ol>
 </div>
 
 

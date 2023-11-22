@@ -19,6 +19,8 @@ knitr::opts_chunk$set(echo = FALSE)
 library(rvest)
 library(tidyverse)
 library(purrr)
+library(DBI)
+library(RSQLite)
 ```
 
 
@@ -29,6 +31,26 @@ The GitHub repository for **this assignment** can be found [here](https://github
 
 ## Exercise 1
 
+This assignment will take us through a workflow that a data scientist might encounter in the real world, from data collection right through to analysis. Throughout this assignment we are going to use a local relational database to store a variety of different but related tables that we collect and may want to combine in various ways. We will want to ensure that each table within our database can be joined to every other table using a `primary key`. 
+
+We will start by creating an empty local relational database. You should store this new database in a 'database' folder that you create within your assignment folder. Follow these steps:
+
+1. Use the `DBI::dbConnect()` function in `R` to create a new `SQLite` database (either `YOUR_DB_NAME.sqlite` or `YOUR_DB_NAME.db`) in your database folder.
+2. Use the `file.exists()` function in `R` to check for the existence of your relational database.  
+
+Include in the main text of your `.html` submission the code that created the database **and** the code that checks for its existence **and** the output of that check.
+
+
+### Create a local relational database
+
+```{r create database, echo=TRUE}
+
+# Create database
+db <- dbConnect(RSQLite::SQLite(), "universities_db.sqlite")
+
+# Use file.exists() to check the existence of the relational database
+print(file.exists("universities_db.sqlite"))
+```
 
 
 
@@ -120,8 +142,6 @@ vii. The endowment of the university in USD dollars
 viii. The total number of students (including both undergraduate and postgraduate)
 
 
-
-
 ```{r code for creating the tibble of previous exercise}
 url <- "https://en.wikipedia.org/wiki/List_of_research_universities_in_the_United_States"
 table_indices <- c(19, 27)
@@ -177,7 +197,7 @@ print(empty_tibble)
 
 
 
-Geographic Location
+#### Geographic Location
 
 
 ```{r}
@@ -215,7 +235,10 @@ empty_tibble <- empty_tibble %>%
   mutate(Geographic_Location = map_chr(Geographic_Location, ~ .[1]))
 ```
 
-Endowment
+**Note**: There are missing values. To be exact, the [University of Colorado Denver](https://en.wikipedia.org//wiki/University_of_Colorado_Denver) and the [University of Mississippi](https://en.wikipedia.org//wiki/University_of_Mississippi) do not have information on the geographic location on their wikipedia websites.
+
+
+#### Endowment
 
 ```{r}
 # Exercise 2b
@@ -225,6 +248,17 @@ Endowment
 
 endowment_data <- list()
 
+# Clean text by removing text within brackets
+clean_text <- function(text) {
+  # Remove text containing brackets within brackets
+  text <- gsub("\\([^()]*\\)", "", text)
+  # Remove text within square brackets
+  text <- gsub("\\[.*?\\]", "", text)
+  # Remove text within round brackets
+  text <- gsub("\\(.*?\\)", "", text)
+  return(text)
+}
+
 for (hyperlink in hyperlinks_list) {
   university_page <- read_html(hyperlink)
    
@@ -232,14 +266,17 @@ for (hyperlink in hyperlinks_list) {
   endowment <- university_page %>%
     html_nodes("table.infobox th:contains('Endowment') + td") %>%
     html_text() %>%
-    unique()
+    unique() %>%
+    clean_text()
+  
 
   # Check if 'Endowment' entry exists, if not, extract 'Budget'
   if (length(endowment) == 0) {
     budget <- university_page %>%
       html_nodes("table.infobox th:contains('Budget') + td") %>%
       html_text() %>%
-      unique()
+      unique() %>%
+      clean_text()
 
     endowment_data <- append(endowment_data, list(budget))
   } else {
@@ -256,14 +293,13 @@ empty_tibble <- empty_tibble %>%
 ```
 
 
-NOTE: For some unis, there is no data on the endowment that is available on the wikipedia website, for instance University of Missouri–St. Louis	
+**Note**: For some unis, there is no data on the endowment that is available on the wikipedia website. More precisely, the [Airforce Institute of Technology](https://en.wikipedia.org//wiki/Air_Force_Institute_of_Technology), [Azusa Pacific University](https://en.wikipedia.org/wiki/Azusa_Pacific_University), [Long Island University](https://en.wikipedia.org//wiki/LIU_Post	), and the [University of Missouri–St. Louis](https://en.wikipedia.org//wiki/University_of_Missouri%E2%80%93St._Louis	) do not have information on the website on endowment/budget.
 
 
 
-Total number of students 
+#### Total number of students 
 
-
-Try through post + undergrad first
+On some websites, the total student body is not declared in a comprehensive way because it is split up by the different campusses of the university. Therefore, it is easier to scrape the data by adding the number of postgraduates and undergraduates than to write a function that can add all of the student bodies from different campusses of the individual universities. To ensure that also universities that only have postgraduates or undergraduates, and universities which only have a number for the total student body on their website, the code is modified. Firstly, an if-statement will ensure that for those instances with NA's for either variable postgraduates or undergraduates, the number from the variable without the NA is declared as the total student body. Secondly, for the instances that only include data on the total student body on the website, another webscraping is formulated that scrapes the "Students" data from the Wikipedia website and then adds this to the variable in our scraped data set.
 
 
 ```{r}
@@ -295,8 +331,8 @@ for (hyperlink in hyperlinks_list) {
   undergraduates_data <- append(undergraduates_data, list(cleaned_undergraduates))
 
   
-  # Undergraduates 
-  # Extract the number of undergraduate students
+  # Postgraduates 
+  # Extract the number of postgraduate students
   postgraduates <- university_page %>%
     html_nodes("table.infobox th:contains('Postgraduates') + td") %>%
     html_text() %>%
@@ -329,8 +365,7 @@ empty_tibble
 
 
 
-
-If both undergraduates and graduates are na, we will scrape "students" from the website
+If both undergraduates and graduates are missing on the respective website, we will scrape "Students" from the website.
 
 ```{r}
 
@@ -358,8 +393,164 @@ if (any(is.na(empty_tibble$Students))) {
 ```
 
 
+```{r}
+
+# Remove columns named 'Undergraduates' and 'Postgraduates'
+empty_tibble <- select(empty_tibble, -Undergraduates, -Postgraduates)
+```
 
 
+### c. Data munging
+
+Download from the course website the `ivyleague.csv` file and store it appropriately on your local machine. We are going to use this file to focus our attention only on the subset of U.S. universities that are known as the "Ivy League."^[We are only narrowing our focus so that we do not do too much scraping for no real research purpose, not because the Ivy League is particularly important or interesting.] This file includes a **shortened** version of each university's name, the County and State in which the university's main campus is located (we will use these variables later), and the university's Employer Identification Number (EIN -- we will use this variable later). Call this file into `R` and create three new variables in your main table: 
+
+ix. An indicator for whether the university is an Ivy League institution
+x. The university's county (it would be wise to concatenate both county and state into a single string, separated by ",")
+xi. The university's EIN (which can be missing for those universities not in the Ivy League)
+
+#### Read in the data
+
+```{r read in ivyleague.csv}
+
+# Read the CSV file into a data frame
+ivyleagues <- read.csv("ivyleague.csv")
+
+# Note that I saved the file "ivyleague.csv" in the same folder as this RMarkdown.
+# If the file is located in a different folder, "ivyleague.csv" needs to be modified by including the correct path before reading in the dataa using read.csv
+
+# Display the first few rows of the ivyleagues data
+head(ivyleagues)
+```
+
+The ivyleagues data contains four variables, namely a **shortened** version of each university's name ("uni_name"), the County ("county") and State ("state") in which the university's main campus is located, and the university's Employer Identification Number ("ein"). There are six observations in the dataset.
+
+#### Ivy League Indicator, County and EIN
+
+Since the names in the ivyleagues data are shortened, writing a function that creates another variable indicating wether the observation in our tibble is an ivy league does not work properly. For instance, if we would check whether the shortened name (in the variable "uni_name") in the ivyleagues data appears in the long name (in the variable "Institution") in our universities data frame, also universities that have similar names but are not ivy leagues will be falsely indicated as ivys. For example, not only the ivy league university "Columbia University" but also the "Teachers College at Columbia University" will be indicated as an ivy. To avoid false indications of ivy leagues, we will add another variable to the ivyleages data which includes the full name of the universities.
+
+```{r add the full names to the universities in ivyleagues}
+
+# Update the full_name column based on conditions
+ivyleagues <- ivyleagues %>%
+  mutate(
+    full_name = case_when(
+      uni_name == "Penn" ~ "University of Pennsylvania",
+      uni_name == "Brown" ~ "Brown University",
+      uni_name == "Columbia" ~ "Columbia University",
+      uni_name == "Cornell" ~ "Cornell University",
+      uni_name == "Dartmouth" ~ "Dartmouth College",
+      uni_name == "Harvard" ~ "Harvard University",
+      uni_name == "Princeton" ~ "Princeton University",
+      uni_name == "Yale" ~ "Yale University",
+    )
+  )
+```
+
+
+```{r}
+
+ivyleagues <- ivyleagues %>%
+  mutate(County = ifelse(!is.na(county), paste(county, state, sep = ", "), state))
+
+empty_tibble <- empty_tibble %>%
+  left_join(ivyleagues %>% select(full_name, ein, County), by = c("Institution" = "full_name")) %>%
+  mutate(Ivy_League = ifelse(Institution %in% ivyleagues$full_name, 1, 0))
+
+
+empty_tibble <- empty_tibble %>% rename(EIN = ein)
+
+# Filter for the entries that are ivy leagues to check whether the function properly assigned the ivy leagues
+empty_tibble %>%
+  filter(Ivy_League == 1)
+```
+
+
+### d. Writing to your relational database
+Once you have combined all of the above data into a single table, ensure that it is in a tidy format where each row is a unique university, and each column is a variable (of which there should be exactly 11). Write this table to your relational database, making sure you give it an **appropriate** and **clear** name. Remember to ensure you have a **primary key** (e.g. the university name) that uniquely identifies each unit (university) in your table. 
+
+Create a function to check for the existence and correct dimensionality of your written table. The function should take two arguments: the name of your database, and the name of your table. If the table exists, the function should report as output the number of rows in the table, the number of columns in the table, and the names of the columns. **For all of Exercise 2** it is sufficient for you to include just the code chunk that defines the function and the output of the function in the main section of your submitted `.html` file.
+
+#### Check if the data is tidy
+Firstly, we print out the first few lines of the data frame to ensure it is in a tidy format.
+
+```{r print the first few rows of the dataframe}
+print(head(empty_tibble))
+```
+
+We can see that each row represents a university. To ensure that each row is representative of a unique observation, we use unique(). If the length of the unique values of the Institution variable in our tibble is equal to the length of the variable without using unique(), we can confirm that each row has a different value for “Institution” and thus does represent a unique observation.
+
+
+```{r check if each row holds one unique observation}
+
+# Check if the rows in the dataframe each hold one unique university 
+if (length(unique(empty_tibble$Institution)) == length(empty_tibble$Institution)) {
+  answer <- sprintf("There are %d unique universities in the dataframe 'universities' that are each represented by exactly one row. The data is tidy.", length(unique(empty_tibble$Institution)))
+  print(answer)
+} else {
+  print("Not every row holds the data of a unique university. The data is not tidy.")
+}
+```
+
+To check whether the columns correspond to the 11 variables that we are interested in, we use summary().
+
+```{r check if each variable is represented by one column}
+
+# Check if each column corresponds to one of the 11 variables
+summary(empty_tibble)
+```
+
+As we can see, the data is tidy. Each row represents a unique university and each column holds one variables. In total, we have 279 observations and 11 variables.
+
+#### Write the table to the relational database
+
+We write the table to the relational database "db". using a simple query that selects the first eight rows of the data, we check if the addition to the database properly worked. We should receive eight rows of data that each hold values for 12 variables. As the unique key, we will use the name of the universities, which can be found under "Institution".
+
+```{r write the table to the relational database}
+
+# Adding the table to the relational database
+# Only include overwrite = TRUE for practicing purpose
+dbWriteTable(db, "universities", empty_tibble, overwrite = TRUE)
+
+# Testing that it worked with a simple query
+dbGetQuery(db, "SELECT * FROM universities LIMIT 8")
+```
+
+
+#### Create a function
+
+Create a function to check for the existence and correct dimensionality of your written table. The function should take two arguments: the name of your database, and the name of your table. If the table exists, the function should report as output the number of rows in the table, the number of columns in the table, and the names of the columns. **For all of Exercise 2** it is sufficient for you to include just the code chunk that defines the function and the output of the function in the main section of your submitted `.html` file.
+
+```{r write a function that checks the existence and correct dimensionality of the table}
+check_table <- function(db, universities){
+  
+  # Execute an SQL query to get the row count
+  query <- paste("SELECT COUNT(*) FROM", "universities")
+  row_count <- dbGetQuery(db, query)[1, 1]
+  
+  # Get the column names
+  column_names <- list(dbListFields(db, "universities"))
+  
+  # Get the column count
+  column_count <- length(unlist(column_names))
+  
+  # Format the string
+  formatted_string <- sprintf("Number of rows: %s \nNumber of columns: %s \nColumn names: %s", row_count, column_count, paste(column_names, collapse = ", "))
+  
+  # Remove the c() from the output
+  #formatted_string <- gsub("^c\\(|\\)$", "", formatted_string)
+  
+  # Return the row and column counts
+  return(cat(formatted_string))
+}
+
+check_table(db, universities)
+```
+
+
+```{r}
+# Close the database connection
+dbDisconnect(db)
+```
 
 
 ## Exercise 3
