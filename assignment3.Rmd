@@ -21,6 +21,8 @@ library(tidyverse)
 library(purrr)
 library(DBI)
 library(RSQLite)
+library(RSelenium)
+library(netstat)
 ```
 
 
@@ -516,34 +518,340 @@ dbGetQuery(db, "SELECT * FROM universities LIMIT 8")
 ```
 
 
-#### Create a function
+#### Function to check the existence and dimensionality
 
 Create a function to check for the existence and correct dimensionality of your written table. The function should take two arguments: the name of your database, and the name of your table. If the table exists, the function should report as output the number of rows in the table, the number of columns in the table, and the names of the columns. **For all of Exercise 2** it is sufficient for you to include just the code chunk that defines the function and the output of the function in the main section of your submitted `.html` file.
 
 ```{r write a function that checks the existence and correct dimensionality of the table}
-check_table <- function(db, universities){
+check_table <- function(db, a_table){
   
-  # Execute an SQL query to get the row count
-  query <- paste("SELECT COUNT(*) FROM", "universities")
-  row_count <- dbGetQuery(db, query)[1, 1]
+  # Check if the "universities" table exists
+  if (a_table %in% dbListTables(db)) {
+    # Execute an SQL query to get the row count
+    query <- paste("SELECT COUNT(*) FROM", a_table)
+    row_count <- dbGetQuery(db, query)[1, 1]
   
-  # Get the column names
-  column_names <- list(dbListFields(db, "universities"))
+    # Get the column names
+    column_names <- list(dbListFields(db, a_table))
   
-  # Get the column count
-  column_count <- length(unlist(column_names))
+    # Get the column count
+    column_count <- length(unlist(column_names))
   
-  # Format the string
-  formatted_string <- sprintf("Number of rows: %s \nNumber of columns: %s \nColumn names: %s", row_count, column_count, paste(column_names, collapse = ", "))
+    # Format the string
+    formatted_string <- sprintf("The table exists and has the following dimensions: \nNumber of rows: %s \nNumber of columns: %s \nColumn names: %s", row_count, column_count, paste(column_names, collapse = ", "))
   
-  # Remove the c() from the output
-  #formatted_string <- gsub("^c\\(|\\)$", "", formatted_string)
-  
-  # Return the row and column counts
-  return(cat(formatted_string))
+    # Return the row and column counts
+    return(cat(formatted_string))
+    
+  } else {
+    return(cat("The table does not exist."))
+  }
 }
 
-check_table(db, universities)
+check_table(db, "universities")
+```
+
+
+
+## Exercise 3
+
+We are now going to use the `Rselenium` package to explore the [Academic Ranking of World Universities](https://www.shanghairanking.com/).^[Are university rankings really meaningful? Probably not, but we will explore them for this exercise anyway.]
+
+### a. Scraping annual rank
+
+Create a webscraper that returns, for the **Ivy League university only**:
+
+i. The ARWU ranking for the university for the years 2003, 2013, and 2023. If the university's rank is given as a range e.g. 76-100, convert this to the midpoint of the range -- in this case 88.
+
+Your final table should be in tidy long format, where each row uniquely identifies a combination of university and year (e.g., Harvard-2003). Write the data as a new table -- appropriately and clearly named -- to your relational database. Check for the existence and correct dimensionality of your written table using the function you wrote in Exercise 2.d. Include only the call to the function and the output in the main section of your `.html` file.
+
+#### Launch the browser
+
+```{r launch the browser, echo=FALSE}
+
+# Launch the driver and browser
+rD <- rsDriver(browser=c("firefox"), port = free_port(random = TRUE), chromever = NULL) 
+driver <- rD$client
+```
+
+#### Navigate to the shanghai ranking website
+
+```{r navigate to the website}
+
+# Navigate to the website
+url <- "https://www.shanghairanking.com/"
+driver$navigate(url)
+
+# Navigate to the 2023 ranking 
+academic_ranking_23 <- driver$findElement(using = "xpath", value = '/html/body/div/div/div/div[2]/div[2]/div[2]/div[1]/button')
+academic_ranking_23$clickElement()
+```
+
+#### Preparation for the scraping
+
+1. Function that searches for each ivy league university in the dataframe
+
+```{r function that searches for the ivys}
+
+# A function that searches for each ivy league university 
+search_for <- function(term) {
+  
+  # Find the search field, clear it, and enter the new search term, e.g. "Harvard University"
+  search_field <- driver$findElement(using = "xpath", value = '/html/body/div/div/div/div[2]/div/div[2]/div/div[1]/div/div[1]/input')
+  search_field$clearElement()
+  search_field$sendKeysToElement(list(term))
+  
+  # Wait for one second and then press the enter key
+  Sys.sleep(1)
+  search_field$sendKeysToElement(list(key = "enter"))
+  
+}
+```
+
+
+2. Function that navigates to a different year
+
+```{r Create a function that navigates to a different year }
+
+# A function that navigates to a different year
+navigate_year <- function() {
+  # Find the element using the provided XPath
+  year_selector <- driver$findElement(using = "xpath", value =  '/html/body/div/div/div/div[2]/div/div[1]/div[2]/div[2]/div/div[1]/div/div[1]/img')
+  
+  # Click on the element
+  year_selector$clickElement()
+}
+```
+
+
+
+3. Function that extracts the rank of the ivy leagues given what university we have searched for using search_for() and what year we are currently looking at after having used navigate_year().
+
+```{r functions to extract the world rank and the year}
+
+extract_rank <- function() {
+  # A function that extracts the rank from the website
+  
+  # Find the element on the website and transform it to text directly
+  current_university_rank <- driver$findElement(using = "xpath",
+                                                value = '/html/body/div/div/div/div[2]/div/div[2]/div/div[1]/div/div[2]/table/tbody/tr/td[1]/div')$getElementText()[[1]]
+  
+  return(current_university_rank)
+}
+
+extract_year <- function() {
+  # A function that extracts the year we are currently searching for and returns it
+  current_year <- driver$findElement(using = "xpath",
+                                     value = '/html/body/div/div/div/div[2]/div/div[1]/div[2]/div[2]/div/div[1]/div/div[2]/ul/li[1]')$getElementText()[[1]]
+  
+  return(current_year)
+}
+```
+
+
+4. Data frames for each year we are interested in
+
+We will temporarily create three data frame that hold the names of the ivy leagues in their first column. Furthermore, these dataframes have an empty column for the rank and another empty column that will later hold the year. Before scraping the data from the website, the three dataframes look identical. Below, the dataframe for the year 2003 can be seen.
+
+```{r create a dataframe with ivy leagues}
+
+# Create a dataframe that holds all ivy league universities as displayed in the ivyleagues data
+ivyleagues_df <- data.frame(
+  Institution = ivyleagues$full_name,
+  # Add an empty column for the year 
+  Year = numeric(length(ivyleagues$full_name)),
+  # Add an empty column for the Rank
+  Rank = numeric(length(ivyleagues$full_name)),
+  stringsAsFactors = FALSE
+)
+
+# Create three copies of the ivyleagues_df data frame for each of the three years that we will later scrape ranking data fro
+ivyleagues_03 <- ivyleagues_df
+ivyleagues_13 <- ivyleagues_df
+ivyleagues_23 <- ivyleagues_df
+
+# Display the ivy league dataframes for the three years
+print(ivyleagues_03)
+```
+
+
+#### Extract the rank
+
+```{r extract the world rank of each ivy league}
+
+# Scrape the rank for each ivy league university from the website for the years 2003, 2013, 2023
+
+
+##########
+## 2023 ##
+##########
+
+# Navigate to 2023
+navigate_year()
+
+academic_ranking_23 <- driver$findElement(using = "xpath", value = '/html/body/div/div/div/div[2]/div/div[1]/div[2]/div[2]/div/div[1]/div/div[2]/ul/li[1]')
+academic_ranking_23$clickElement()
+
+# Loop through all ivy league universities in the ivyleagues dataset and call the search_for function for each university
+for (i in seq_along(ivyleagues_23$Institution)) {
+  
+  # Search for the university
+  search_for(ivyleagues_23$Institution[i])
+  
+  # Add a delay to allow the page to load before the next search
+  Sys.sleep(2)  
+  
+  # Extract the rank from the webpage and assign it to the Rank column
+  ivyleagues_23$Rank[i] <- extract_rank()
+  
+  # Assign the year 2023 to the Year column
+  #ivyleagues_23$Year[i] <- extract_year()
+  ivyleagues_23$Year[i] <- "2023"
+
+}
+
+##########
+## 2013 ##
+##########
+
+# Navigate to 2013
+navigate_year()
+
+academic_ranking_13 <- driver$findElement(using = "xpath", value = '/html/body/div/div/div/div[2]/div/div[1]/div[2]/div[2]/div/div[1]/div/div[2]/ul/li[11]')
+academic_ranking_13$clickElement()
+
+for (i in seq_along(ivyleagues_13$Institution)) {
+  
+  # Search for the university
+  search_for(ivyleagues_13$Institution[i])
+  
+  # Add a delay to allow the page to load before the next search
+  Sys.sleep(2)  
+  
+  # Extract the rank from the webpage and assign it to the Rank column
+  ivyleagues_13$Rank[i] <- extract_rank()
+  
+  # Assign the year 2013 to the Year column
+  ivyleagues_13$Year[i] <- "2013"
+
+}
+
+##########
+## 2003 ##
+##########
+
+# Navigate to 2003
+navigate_year()
+
+academic_ranking_03 <- driver$findElement(using = "xpath", value = '/html/body/div/div/div/div[2]/div/div[1]/div[2]/div[2]/div/div[1]/div/div[2]/ul/li[21]')
+academic_ranking_03$clickElement()
+
+for (i in seq_along(ivyleagues_03$Institution)) {
+  
+  # Search for the university
+  search_for(ivyleagues_03$Institution[i])
+  
+  # Add a delay to allow the page to load before the next search
+  Sys.sleep(2)  
+  
+  # Extract the rank from the webpage and assign it to the Rank column
+  ivyleagues_03$Rank[i] <- extract_rank()
+  
+  # Assign the year 2003 to the Year column
+  ivyleagues_03$Year[i] <- "2003"
+
+}
+```
+
+```{r print the tables}
+
+print(ivyleagues_23)
+print(ivyleagues_03)
+print(ivyleagues_13)
+```
+
+
+
+
+
+
+```{r merge the institution columns with the year columns}
+
+ivyleagues_03$Institution <- paste(ivyleagues_03$Institution, ivyleagues_03$Year, sep = "-")
+ivyleagues_03$Year <- NULL
+
+ivyleagues_13$Institution <- paste(ivyleagues_13$Institution, ivyleagues_13$Year, sep = "-")
+ivyleagues_13$Year <- NULL
+
+ivyleagues_23$Institution <- paste(ivyleagues_23$Institution, ivyleagues_23$Year, sep = "-")
+ivyleagues_23$Year <- NULL
+
+
+# Merge all three data sets
+
+ivyleagues_ranks <- rbind(ivyleagues_03, ivyleagues_13, ivyleagues_23)
+
+# Function to calculate midpoint from a range
+
+calculate_midpoint <- function(rank) {
+  for (i in seq_along(rank)) {
+  range_midpoint <- mean(as.numeric(strsplit(rank[i], "-")[[1]])) 
+  return(range_midpoint)}
+}
+
+ivyleagues_ranks$Rank <- sapply(ivyleagues_ranks$Rank, calculate_midpoint)
+```
+
+
+#### Write it to the database
+
+```{r write the ivyleagues_ranks table to the relational database}
+
+# Adding the table to the relational database
+# Only include overwrite = TRUE for practicing purpose
+dbWriteTable(db, "ivyleagues_ranks", ivyleagues_ranks, overwrite = TRUE)
+
+# Testing that it worked with a simple query
+dbGetQuery(db, "SELECT * FROM ivyleagues_ranks LIMIT 8")
+
+```
+
+
+
+#### Check the existence of the table
+
+```{r}
+check_table(db, "ivyleagues_ranks")
+```
+
+
+### b. Scraping subject ranks for 2023
+
+Extend your webscraper (or create a new one) that gathers for each **Ivy League university only**:
+
+i. The rankings of the university for **every social science** for which the university has been ranked. Again, if a range is given, take the midpoint.
+
+Your final table should be in tidy long format, where each row uniquely identifies a combination of university and discipline (e.g., Harvard-Economics). Write the data as a new table -- appropriately and clearly named -- to your relational database. Check for the existence and correct dimensionality of your written table using the function you wrote in Exercise 2.d. Include only the call to the function and the output in the main section of your `.html` file.
+
+
+
+
+
+
+## Close the stuff again
+
+
+
+
+Finally, let us close the driver and browser window before closing R:
+
+```{r}
+# close the RSelenium processes:
+driver$close()
+rD$server$stop()
+
+# close the associated Java processes (if using Mac or Linux this may not be necessary -- Google for correct command)
+system("taskkill /im java.exe /f", intern=FALSE, ignore.stdout=FALSE)
 ```
 
 
@@ -551,11 +859,6 @@ check_table(db, universities)
 # Close the database connection
 dbDisconnect(db)
 ```
-
-
-## Exercise 3
-
-
 
 ## Data
 

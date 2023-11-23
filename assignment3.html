@@ -624,7 +624,7 @@ are interested in, we use summary().</p>
 ##  Length:279         Length:279          Length:279         Min.   :  1726  
 ##  Class :character   Class :character    Class :character   1st Qu.: 11710  
 ##  Mode  :character   Mode  :character    Mode  :character   Median : 19618  
-##                                                            Mean   : 24012  
+##                                                            Mean   : 24011  
 ##                                                            3rd Qu.: 32121  
 ##                                                            Max.   :142636  
 ##                                                                            
@@ -685,8 +685,8 @@ will use the name of the universities, which can be found under
 ## 7                            &lt;NA&gt;          0
 ## 8 Providence County, Rhode Island          1</code></pre>
 </div>
-<div id="create-a-function" class="section level4">
-<h4>Create a function</h4>
+<div id="function-to-check-the-existence-and-dimensionality" class="section level4">
+<h4>Function to check the existence and dimensionality</h4>
 <p>Create a function to check for the existence and correct
 dimensionality of your written table. The function should take two
 arguments: the name of your database, and the name of your table. If the
@@ -696,7 +696,8 @@ columns. <strong>For all of Exercise 2</strong> it is sufficient for you
 to include just the code chunk that defines the function and the output
 of the function in the main section of your submitted <code>.html</code>
 file.</p>
-<pre><code>## Number of rows: 279 
+<pre><code>## The table exists and has the following dimensions: 
+## Number of rows: 279 
 ## Number of columns: 11 
 ## Column names: c(&quot;Institution&quot;, &quot;Control&quot;, &quot;City&quot;, &quot;State&quot;, &quot;Wikipedia_URL&quot;, &quot;Geographic_Location&quot;, &quot;Endowment&quot;, &quot;Students&quot;, &quot;EIN&quot;, &quot;County&quot;, &quot;Ivy_League&quot;)</code></pre>
 </div>
@@ -704,6 +705,222 @@ file.</p>
 </div>
 <div id="exercise-3" class="section level2">
 <h2>Exercise 3</h2>
+<p>We are now going to use the <code>Rselenium</code> package to explore
+the <a href="https://www.shanghairanking.com/">Academic Ranking of World
+Universities</a>.<a href="#fn2" class="footnote-ref" id="fnref2"><sup>2</sup></a></p>
+<div id="a.-scraping-annual-rank" class="section level3">
+<h3>a. Scraping annual rank</h3>
+<p>Create a webscraper that returns, for the <strong>Ivy League
+university only</strong>:</p>
+<ol style="list-style-type: lower-roman">
+<li>The ARWU ranking for the university for the years 2003, 2013, and
+2023. If the university’s rank is given as a range e.g. 76-100, convert
+this to the midpoint of the range – in this case 88.</li>
+</ol>
+<p>Your final table should be in tidy long format, where each row
+uniquely identifies a combination of university and year (e.g.,
+Harvard-2003). Write the data as a new table – appropriately and clearly
+named – to your relational database. Check for the existence and correct
+dimensionality of your written table using the function you wrote in
+Exercise 2.d. Include only the call to the function and the output in
+the main section of your <code>.html</code> file.</p>
+<div id="launch-the-browser" class="section level4">
+<h4>Launch the browser</h4>
+<pre><code>## checking Selenium Server versions:</code></pre>
+<pre><code>## BEGIN: PREDOWNLOAD</code></pre>
+<pre><code>## BEGIN: DOWNLOAD</code></pre>
+<pre><code>## BEGIN: POSTDOWNLOAD</code></pre>
+<pre><code>## checking geckodriver versions:</code></pre>
+<pre><code>## BEGIN: PREDOWNLOAD</code></pre>
+<pre><code>## BEGIN: DOWNLOAD</code></pre>
+<pre><code>## BEGIN: POSTDOWNLOAD</code></pre>
+<pre><code>## checking phantomjs versions:</code></pre>
+<pre><code>## BEGIN: PREDOWNLOAD</code></pre>
+<pre><code>## BEGIN: DOWNLOAD</code></pre>
+<pre><code>## BEGIN: POSTDOWNLOAD</code></pre>
+<pre><code>## [1] &quot;Connecting to remote server&quot;
+## $acceptInsecureCerts
+## [1] FALSE
+## 
+## $browserName
+## [1] &quot;firefox&quot;
+## 
+## $browserVersion
+## [1] &quot;107.0.1&quot;
+## 
+## $`moz:accessibilityChecks`
+## [1] FALSE
+## 
+## $`moz:buildID`
+## [1] &quot;20221128144904&quot;
+## 
+## $`moz:geckodriverVersion`
+## [1] &quot;0.33.0&quot;
+## 
+## $`moz:headless`
+## [1] FALSE
+## 
+## $`moz:platformVersion`
+## [1] &quot;22.1.0&quot;
+## 
+## $`moz:processID`
+## [1] 16943
+## 
+## $`moz:profile`
+## [1] &quot;/var/folders/33/gftgqnd57td6_z801dxqfyy40000gp/T/rust_mozprofileuiF7zn&quot;
+## 
+## $`moz:shutdownTimeout`
+## [1] 60000
+## 
+## $`moz:useNonSpecCompliantPointerOrigin`
+## [1] FALSE
+## 
+## $`moz:webdriverClick`
+## [1] TRUE
+## 
+## $`moz:windowless`
+## [1] FALSE
+## 
+## $pageLoadStrategy
+## [1] &quot;normal&quot;
+## 
+## $platformName
+## [1] &quot;mac&quot;
+## 
+## $proxy
+## named list()
+## 
+## $setWindowRect
+## [1] TRUE
+## 
+## $strictFileInteractability
+## [1] FALSE
+## 
+## $timeouts
+## $timeouts$implicit
+## [1] 0
+## 
+## $timeouts$pageLoad
+## [1] 300000
+## 
+## $timeouts$script
+## [1] 30000
+## 
+## 
+## $unhandledPromptBehavior
+## [1] &quot;dismiss and notify&quot;
+## 
+## $webdriver.remote.sessionid
+## [1] &quot;6a164507-42fc-4e9c-9893-828914a0d462&quot;
+## 
+## $id
+## [1] &quot;6a164507-42fc-4e9c-9893-828914a0d462&quot;</code></pre>
+</div>
+<div id="navigate-to-the-shanghai-ranking-website" class="section level4">
+<h4>Navigate to the shanghai ranking website</h4>
+</div>
+<div id="preparation-for-the-scraping" class="section level4">
+<h4>Preparation for the scraping</h4>
+<ol style="list-style-type: decimal">
+<li><p>Function that searches for each ivy league university in the
+dataframe</p></li>
+<li><p>Function that navigates to a different year</p></li>
+<li><p>Function that extracts the rank of the ivy leagues given what
+university we have searched for using search_for() and what year we are
+currently looking at after having used navigate_year().</p></li>
+<li><p>Data frames for each year we are interested in</p></li>
+</ol>
+<p>We will temporarily create three data frame that hold the names of
+the ivy leagues in their first column. Furthermore, these dataframes
+have an empty column for the rank and another empty column that will
+later hold the year. Before scraping the data from the website, the
+three dataframes look identical. Below, the dataframe for the year 2003
+can be seen.</p>
+<pre><code>##                  Institution Year Rank
+## 1 University of Pennsylvania    0    0
+## 2           Brown University    0    0
+## 3        Columbia University    0    0
+## 4         Cornell University    0    0
+## 5          Dartmouth College    0    0
+## 6         Harvard University    0    0
+## 7       Princeton University    0    0
+## 8            Yale University    0    0</code></pre>
+</div>
+<div id="extract-the-rank" class="section level4">
+<h4>Extract the rank</h4>
+<pre><code>##                  Institution Year    Rank
+## 1 University of Pennsylvania 2023      14
+## 2           Brown University 2023      98
+## 3        Columbia University 2023       8
+## 4         Cornell University 2023      12
+## 5          Dartmouth College 2023 301-400
+## 6         Harvard University 2023       1
+## 7       Princeton University 2023       6
+## 8            Yale University 2023      11</code></pre>
+<pre><code>##                  Institution Year    Rank
+## 1 University of Pennsylvania 2003      18
+## 2           Brown University 2003      49
+## 3        Columbia University 2003      10
+## 4         Cornell University 2003      12
+## 5          Dartmouth College 2003 102-151
+## 6         Harvard University 2003       1
+## 7       Princeton University 2003       7
+## 8            Yale University 2003       8</code></pre>
+<pre><code>##                  Institution Year    Rank
+## 1 University of Pennsylvania 2013      15
+## 2           Brown University 2013      67
+## 3        Columbia University 2013       8
+## 4         Cornell University 2013      13
+## 5          Dartmouth College 2013 151-200
+## 6         Harvard University 2013       1
+## 7       Princeton University 2013       7
+## 8            Yale University 2013      11</code></pre>
+</div>
+<div id="write-it-to-the-database" class="section level4">
+<h4>Write it to the database</h4>
+<pre><code>##                       Institution  Rank
+## 1 University of Pennsylvania-2003  18.0
+## 2           Brown University-2003  49.0
+## 3        Columbia University-2003  10.0
+## 4         Cornell University-2003  12.0
+## 5          Dartmouth College-2003 126.5
+## 6         Harvard University-2003   1.0
+## 7       Princeton University-2003   7.0
+## 8            Yale University-2003   8.0</code></pre>
+</div>
+<div id="check-the-existence-of-the-table" class="section level4">
+<h4>Check the existence of the table</h4>
+<pre><code>## The table exists and has the following dimensions: 
+## Number of rows: 24 
+## Number of columns: 2 
+## Column names: c(&quot;Institution&quot;, &quot;Rank&quot;)</code></pre>
+</div>
+</div>
+<div id="b.-scraping-subject-ranks-for-2023" class="section level3">
+<h3>b. Scraping subject ranks for 2023</h3>
+<p>Extend your webscraper (or create a new one) that gathers for each
+<strong>Ivy League university only</strong>:</p>
+<ol style="list-style-type: lower-roman">
+<li>The rankings of the university for <strong>every social
+science</strong> for which the university has been ranked. Again, if a
+range is given, take the midpoint.</li>
+</ol>
+<p>Your final table should be in tidy long format, where each row
+uniquely identifies a combination of university and discipline (e.g.,
+Harvard-Economics). Write the data as a new table – appropriately and
+clearly named – to your relational database. Check for the existence and
+correct dimensionality of your written table using the function you
+wrote in Exercise 2.d. Include only the call to the function and the
+output in the main section of your <code>.html</code> file.</p>
+</div>
+</div>
+<div id="close-the-stuff-again" class="section level2">
+<h2>Close the stuff again</h2>
+<p>Finally, let us close the driver and browser window before closing
+R:</p>
+<pre><code>## [1] TRUE</code></pre>
+<pre><code>## Warning in system(&quot;taskkill /im java.exe /f&quot;, intern = FALSE, ignore.stdout =
+## FALSE): error in running command</code></pre>
 </div>
 <div id="data" class="section level2">
 <h2>Data</h2>
@@ -728,6 +945,8 @@ library(tidyverse)
 library(purrr)
 library(DBI)
 library(RSQLite)
+library(RSelenium)
+library(netstat)
 
 # Create database
 db &lt;- dbConnect(RSQLite::SQLite(), &quot;universities_db.sqlite&quot;)
@@ -1061,29 +1280,229 @@ dbWriteTable(db, &quot;universities&quot;, empty_tibble, overwrite = TRUE)
 
 # Testing that it worked with a simple query
 dbGetQuery(db, &quot;SELECT * FROM universities LIMIT 8&quot;)
-check_table &lt;- function(db, universities){
+check_table &lt;- function(db, a_table){
   
-  # Execute an SQL query to get the row count
-  query &lt;- paste(&quot;SELECT COUNT(*) FROM&quot;, &quot;universities&quot;)
-  row_count &lt;- dbGetQuery(db, query)[1, 1]
+  # Check if the &quot;universities&quot; table exists
+  if (a_table %in% dbListTables(db)) {
+    # Execute an SQL query to get the row count
+    query &lt;- paste(&quot;SELECT COUNT(*) FROM&quot;, a_table)
+    row_count &lt;- dbGetQuery(db, query)[1, 1]
   
-  # Get the column names
-  column_names &lt;- list(dbListFields(db, &quot;universities&quot;))
+    # Get the column names
+    column_names &lt;- list(dbListFields(db, a_table))
   
-  # Get the column count
-  column_count &lt;- length(unlist(column_names))
+    # Get the column count
+    column_count &lt;- length(unlist(column_names))
   
-  # Format the string
-  formatted_string &lt;- sprintf(&quot;Number of rows: %s \nNumber of columns: %s \nColumn names: %s&quot;, row_count, column_count, paste(column_names, collapse = &quot;, &quot;))
+    # Format the string
+    formatted_string &lt;- sprintf(&quot;The table exists and has the following dimensions: \nNumber of rows: %s \nNumber of columns: %s \nColumn names: %s&quot;, row_count, column_count, paste(column_names, collapse = &quot;, &quot;))
   
-  # Remove the c() from the output
-  #formatted_string &lt;- gsub(&quot;^c\\(|\\)$&quot;, &quot;&quot;, formatted_string)
-  
-  # Return the row and column counts
-  return(cat(formatted_string))
+    # Return the row and column counts
+    return(cat(formatted_string))
+    
+  } else {
+    return(cat(&quot;The table does not exist.&quot;))
+  }
 }
 
-check_table(db, universities)
+check_table(db, &quot;universities&quot;)
+
+# Launch the driver and browser
+rD &lt;- rsDriver(browser=c(&quot;firefox&quot;), port = free_port(random = TRUE), chromever = NULL) 
+driver &lt;- rD$client
+
+# Navigate to the website
+url &lt;- &quot;https://www.shanghairanking.com/&quot;
+driver$navigate(url)
+
+# Navigate to the 2023 ranking 
+academic_ranking_23 &lt;- driver$findElement(using = &quot;xpath&quot;, value = &#39;/html/body/div/div/div/div[2]/div[2]/div[2]/div[1]/button&#39;)
+academic_ranking_23$clickElement()
+
+# A function that searches for each ivy league university 
+search_for &lt;- function(term) {
+  
+  # Find the search field, clear it, and enter the new search term, e.g. &quot;Harvard University&quot;
+  search_field &lt;- driver$findElement(using = &quot;xpath&quot;, value = &#39;/html/body/div/div/div/div[2]/div/div[2]/div/div[1]/div/div[1]/input&#39;)
+  search_field$clearElement()
+  search_field$sendKeysToElement(list(term))
+  
+  # Wait for one second and then press the enter key
+  Sys.sleep(1)
+  search_field$sendKeysToElement(list(key = &quot;enter&quot;))
+  
+}
+
+# A function that navigates to a different year
+navigate_year &lt;- function() {
+  # Find the element using the provided XPath
+  year_selector &lt;- driver$findElement(using = &quot;xpath&quot;, value =  &#39;/html/body/div/div/div/div[2]/div/div[1]/div[2]/div[2]/div/div[1]/div/div[1]/img&#39;)
+  
+  # Click on the element
+  year_selector$clickElement()
+}
+
+extract_rank &lt;- function() {
+  # A function that extracts the rank from the website
+  
+  # Find the element on the website and transform it to text directly
+  current_university_rank &lt;- driver$findElement(using = &quot;xpath&quot;,
+                                                value = &#39;/html/body/div/div/div/div[2]/div/div[2]/div/div[1]/div/div[2]/table/tbody/tr/td[1]/div&#39;)$getElementText()[[1]]
+  
+  return(current_university_rank)
+}
+
+extract_year &lt;- function() {
+  # A function that extracts the year we are currently searching for and returns it
+  current_year &lt;- driver$findElement(using = &quot;xpath&quot;,
+                                     value = &#39;/html/body/div/div/div/div[2]/div/div[1]/div[2]/div[2]/div/div[1]/div/div[2]/ul/li[1]&#39;)$getElementText()[[1]]
+  
+  return(current_year)
+}
+
+# Create a dataframe that holds all ivy league universities as displayed in the ivyleagues data
+ivyleagues_df &lt;- data.frame(
+  Institution = ivyleagues$full_name,
+  # Add an empty column for the year 
+  Year = numeric(length(ivyleagues$full_name)),
+  # Add an empty column for the Rank
+  Rank = numeric(length(ivyleagues$full_name)),
+  stringsAsFactors = FALSE
+)
+
+# Create three copies of the ivyleagues_df data frame for each of the three years that we will later scrape ranking data fro
+ivyleagues_03 &lt;- ivyleagues_df
+ivyleagues_13 &lt;- ivyleagues_df
+ivyleagues_23 &lt;- ivyleagues_df
+
+# Display the ivy league dataframes for the three years
+print(ivyleagues_03)
+
+# Scrape the rank for each ivy league university from the website for the years 2003, 2013, 2023
+
+
+##########
+## 2023 ##
+##########
+
+# Navigate to 2023
+navigate_year()
+
+academic_ranking_23 &lt;- driver$findElement(using = &quot;xpath&quot;, value = &#39;/html/body/div/div/div/div[2]/div/div[1]/div[2]/div[2]/div/div[1]/div/div[2]/ul/li[1]&#39;)
+academic_ranking_23$clickElement()
+
+# Loop through all ivy league universities in the ivyleagues dataset and call the search_for function for each university
+for (i in seq_along(ivyleagues_23$Institution)) {
+  
+  # Search for the university
+  search_for(ivyleagues_23$Institution[i])
+  
+  # Add a delay to allow the page to load before the next search
+  Sys.sleep(2)  
+  
+  # Extract the rank from the webpage and assign it to the Rank column
+  ivyleagues_23$Rank[i] &lt;- extract_rank()
+  
+  # Assign the year 2023 to the Year column
+  #ivyleagues_23$Year[i] &lt;- extract_year()
+  ivyleagues_23$Year[i] &lt;- &quot;2023&quot;
+
+}
+
+##########
+## 2013 ##
+##########
+
+# Navigate to 2013
+navigate_year()
+
+academic_ranking_13 &lt;- driver$findElement(using = &quot;xpath&quot;, value = &#39;/html/body/div/div/div/div[2]/div/div[1]/div[2]/div[2]/div/div[1]/div/div[2]/ul/li[11]&#39;)
+academic_ranking_13$clickElement()
+
+for (i in seq_along(ivyleagues_13$Institution)) {
+  
+  # Search for the university
+  search_for(ivyleagues_13$Institution[i])
+  
+  # Add a delay to allow the page to load before the next search
+  Sys.sleep(2)  
+  
+  # Extract the rank from the webpage and assign it to the Rank column
+  ivyleagues_13$Rank[i] &lt;- extract_rank()
+  
+  # Assign the year 2013 to the Year column
+  ivyleagues_13$Year[i] &lt;- &quot;2013&quot;
+
+}
+
+##########
+## 2003 ##
+##########
+
+# Navigate to 2003
+navigate_year()
+
+academic_ranking_03 &lt;- driver$findElement(using = &quot;xpath&quot;, value = &#39;/html/body/div/div/div/div[2]/div/div[1]/div[2]/div[2]/div/div[1]/div/div[2]/ul/li[21]&#39;)
+academic_ranking_03$clickElement()
+
+for (i in seq_along(ivyleagues_03$Institution)) {
+  
+  # Search for the university
+  search_for(ivyleagues_03$Institution[i])
+  
+  # Add a delay to allow the page to load before the next search
+  Sys.sleep(2)  
+  
+  # Extract the rank from the webpage and assign it to the Rank column
+  ivyleagues_03$Rank[i] &lt;- extract_rank()
+  
+  # Assign the year 2003 to the Year column
+  ivyleagues_03$Year[i] &lt;- &quot;2003&quot;
+
+}
+
+print(ivyleagues_23)
+print(ivyleagues_03)
+print(ivyleagues_13)
+
+ivyleagues_03$Institution &lt;- paste(ivyleagues_03$Institution, ivyleagues_03$Year, sep = &quot;-&quot;)
+ivyleagues_03$Year &lt;- NULL
+
+ivyleagues_13$Institution &lt;- paste(ivyleagues_13$Institution, ivyleagues_13$Year, sep = &quot;-&quot;)
+ivyleagues_13$Year &lt;- NULL
+
+ivyleagues_23$Institution &lt;- paste(ivyleagues_23$Institution, ivyleagues_23$Year, sep = &quot;-&quot;)
+ivyleagues_23$Year &lt;- NULL
+
+
+# Merge all three data sets
+
+ivyleagues_ranks &lt;- rbind(ivyleagues_03, ivyleagues_13, ivyleagues_23)
+
+# Function to calculate midpoint from a range
+
+calculate_midpoint &lt;- function(rank) {
+  for (i in seq_along(rank)) {
+  range_midpoint &lt;- mean(as.numeric(strsplit(rank[i], &quot;-&quot;)[[1]])) 
+  return(range_midpoint)}
+}
+
+ivyleagues_ranks$Rank &lt;- sapply(ivyleagues_ranks$Rank, calculate_midpoint)
+
+# Adding the table to the relational database
+# Only include overwrite = TRUE for practicing purpose
+dbWriteTable(db, &quot;ivyleagues_ranks&quot;, ivyleagues_ranks, overwrite = TRUE)
+
+# Testing that it worked with a simple query
+dbGetQuery(db, &quot;SELECT * FROM ivyleagues_ranks LIMIT 8&quot;)
+
+check_table(db, &quot;ivyleagues_ranks&quot;)
+# close the RSelenium processes:
+driver$close()
+rD$server$stop()
+
+# close the associated Java processes (if using Mac or Linux this may not be necessary -- Google for correct command)
+system(&quot;taskkill /im java.exe /f&quot;, intern=FALSE, ignore.stdout=FALSE)
 # Close the database connection
 dbDisconnect(db)</code></pre>
 </div>
@@ -1093,6 +1512,8 @@ dbDisconnect(db)</code></pre>
 <li id="fn1"><p>We are only narrowing our focus so that we do not do too
 much scraping for no real research purpose, not because the Ivy League
 is particularly important or interesting.<a href="#fnref1" class="footnote-back">↩︎</a></p></li>
+<li id="fn2"><p>Are university rankings really meaningful? Probably not,
+but we will explore them for this exercise anyway.<a href="#fnref2" class="footnote-back">↩︎</a></p></li>
 </ol>
 </div>
 
