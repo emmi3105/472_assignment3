@@ -49,8 +49,16 @@ Include in the main text of your `.html` submission the code that created the da
 
 # Create database
 db <- dbConnect(RSQLite::SQLite(), "universities_db.sqlite")
+```
 
-# Use file.exists() to check the existence of the relational database
+### Check for the existence of the database
+
+We will use file.exist() to check for the existence of the relational database. If that returns TRUE, the database exists.
+
+
+```{r check existence of database, echo=TRUE}
+
+# Check existence of the database
 print(file.exists("universities_db.sqlite"))
 ```
 
@@ -58,24 +66,42 @@ print(file.exists("universities_db.sqlite"))
 
 ## Exercise 2
 
-### a. Gathering structured data
+### a. Gathering structured data 
+
+**Task**
 Write an automatic webscraping function in R that constructs a table (as e.g. a data frame, a tibble, or a data table) of all R1 (Very High Research Activity) **and** R2 (High Research Activity) Research Universities in the United States of America. These data can be found on [wikipedia](https://en.wikipedia.org/wiki/List_of_research_universities_in_the_United_States). 
 
-Your initial scraper should collect five variables:
+**Note**: The solution to Exercise 2a can be found under the solution for Exercise 2b.
+
+### b. Gathering unstructured data
+
+**Task**
+Extend your webscraping function (or create a new function) so that it navigates to the dedicated Wikipedia page for each university, and captures three additional variables.
+
+
+#### Automatic webscraping function for 2a and b
+
+I combined exercise 2a and 2b and directly wrote a webscraping function called scrape_wikipedia_tables that returns a dataframe with the following variables: 
 
 i. The university’s name
 ii. It’s status (public or private)
 iii. The city in which it is located
 iv. The state in which it is located
 v. The URL of the university’s dedicated Wikipedia page
+vi. The geographic coordinates of the (main) university campus
+vii. The endowment of the university in USD dollars
+viii. The total number of students (including both undergraduate and postgraduate)
 
+The first few rows of the resulting table "universities_table" are printed out below. Furthermore, in the following two sections, the function is explained in more detail.
 
-#### Write and run the automatic webscraping function
-
-
-```{r combine the two tables using for loops with url}
+```{r wikipedia web scraping function, echo=TRUE}
 
 scrape_wikipedia_tables <- function(url) {
+  # Input: URL to wikipedia
+  # Function accesses wikipedia articles on universities and scrapes information from the wikipedia pages.
+  # Output: A table with information on US American R1 and R2 universities. More precisely, the table holds the university's name, status (private or public), city, state, the url to the university's Wikipedia page, the university's geographic coordinates, endowment, and number of total students.
+  
+  ### Exercise 2a: scrape information on the name, status, city, state and the url to the wikipedia page
   table_indices <- c(19, 27)
   
   # Storing the URL's HTML code
@@ -98,12 +124,10 @@ scrape_wikipedia_tables <- function(url) {
   hyperlinks_list <- list()
 
   # Iterate over the table indices and extract hyperlinks
-
   for (index in table_indices) {
     table_nodes <- html_content %>%
       html_nodes(paste("#mw-content-text > div.mw-content-ltr.mw-parser-output > table:nth-child(", index, ")", sep = ""))
   
-    # Assuming you want to extract hyperlinks from the first table
     current_node_set <- table_nodes[[1]]
   
     hyperlinks_current_node <- current_node_set %>%
@@ -117,294 +141,193 @@ scrape_wikipedia_tables <- function(url) {
   # Unlist to flatten the list
   hyperlinks_list <- unlist(hyperlinks_list, recursive = FALSE)
 
-
   # Concatenate the base URL to the extracted hyperlinks
   hyperlinks_list <- paste0("https://en.wikipedia.org/", hyperlinks_list)
   
   # Add a new column 'Wikipedia_URL' with the extracted URLs
   empty_tibble$Wikipedia_URL <- hyperlinks_list
 
+    
+  ### Exercise 2b: Add the geographic location, endowment and students
+  
+  #### Geographic location
+
+  university_data <- list()
+
+  for (hyperlink in hyperlinks_list) {
+    university_page <- read_html(hyperlink)
+   
+    # Extract the geographic location using the class selector 'geo_default'
+    geographic_location <- university_page %>%
+      html_nodes(".geo-dec") %>%
+      html_text() %>%
+      unique()
+ 
+    # Store the scraped information in a list
+    university_data <- append(university_data, list(geographic_location))
+  
+  }
+
+  # Add a new column 'Geographic_Location' with the scraped data
+  empty_tibble$Geographic_Location <- university_data
+
+  # Keep the first set of coordinates only
+  empty_tibble <- empty_tibble %>%
+    mutate(Geographic_Location = map_chr(Geographic_Location, ~ .[1]))
+  
+  #### Endowment and budget
+
+  endowment_data <- list()
+
+  # Clean text by removing text within brackets
+  clean_text <- function(text) {
+    # Remove text containing brackets within brackets
+    text <- gsub("\\([^()]*\\)", "", text)
+    # Remove text within square brackets
+    text <- gsub("\\[.*?\\]", "", text)
+    # Remove text within round brackets
+    text <- gsub("\\(.*?\\)", "", text)
+    return(text)
+  }
+
+  for (hyperlink in hyperlinks_list) {
+    university_page <- read_html(hyperlink)
+   
+    # Extract the endowment based on text content (entries with a dollar sign)
+    endowment <- university_page %>%
+      html_nodes("table.infobox th:contains('Endowment') + td") %>%
+      html_text() %>%
+      unique() %>%
+      clean_text()
+  
+
+    # Check if 'Endowment' entry exists, if not, extract 'Budget'
+    if (length(endowment) == 0) {
+      budget <- university_page %>%
+        html_nodes("table.infobox th:contains('Budget') + td") %>%
+        html_text() %>%
+        unique() %>%
+        clean_text()
+
+      endowment_data <- append(endowment_data, list(budget))
+    } else {
+      endowment_data <- append(endowment_data, list(endowment))
+    }
+  }
+
+  # Add a new column 'Endowment' with the scraped data
+  empty_tibble$Endowment <- endowment_data
+  empty_tibble <- empty_tibble %>%
+    mutate(Endowment = map_chr(Endowment, ~ .[1]))
+
+
+  #### Students
+  
+  # To avoid issues with students being spread on different campuses, scrape total student information by adding information on all undergraduates to all postgraduates
+  
+  undergraduates_data <- list()
+  postgraduates_data <- list()
+
+  for (hyperlink in hyperlinks_list) {
+    university_page <- read_html(hyperlink)
+  
+    # Undergraduates 
+    # Extract the number of undergraduate students
+    undergraduates <- university_page %>%
+      html_nodes("table.infobox th:contains('Undergraduates') + td") %>%
+      html_text() %>%
+      unique()
+
+    # Extract only the numbers using regular expressions
+    cleaned_undergraduates <- str_extract(undergraduates, "[\\d,]+")
+  
+    # Assign NA if cleaned_undergraduates is empty
+    cleaned_undergraduates <- ifelse(length(cleaned_undergraduates) == 0, NA, cleaned_undergraduates)
+    undergraduates_data <- append(undergraduates_data, list(cleaned_undergraduates))
+
+    # Postgraduates 
+    # Extract the number of postgraduate students
+    postgraduates <- university_page %>%
+      html_nodes("table.infobox th:contains('Postgraduates') + td") %>%
+      html_text() %>%
+      unique()
+
+    # Extract only the numbers using regular expressions
+    cleaned_postgraduates <- str_extract(postgraduates, "[\\d,]+")
+  
+    # Assign NA if cleaned_postgraduates is empty
+    cleaned_postgraduates <- ifelse(length(cleaned_postgraduates) == 0, NA, cleaned_postgraduates)
+    postgraduates_data <- append(postgraduates_data, list(cleaned_postgraduates))
+  }
+
+  # Remove commas from the extracted data and convert to numeric
+  empty_tibble$Undergraduates <- as.numeric(gsub(",", "", unlist(undergraduates_data)))
+  empty_tibble$Postgraduates <- as.numeric(gsub(",", "", unlist(postgraduates_data)))
+
+  # Create a new column 'Students' as the sum of Undergraduates and Postgraduates
+  empty_tibble$Students <- ifelse(is.na(empty_tibble$Undergraduates), 
+                                  empty_tibble$Postgraduates, 
+                                  ifelse(is.na(empty_tibble$Postgraduates), 
+                                        empty_tibble$Undergraduates, 
+                                        empty_tibble$Undergraduates + empty_tibble$Postgraduates))
+
+  # If the website neither holds information on undergraduates nor on postgraduates, look for information on total students
+
+  students_data <- list()
+
+  for (hyperlink in hyperlinks_list) {
+    university_page <- read_html(hyperlink)
+   
+    # Extract the students
+    students <- university_page %>%
+      html_nodes("table.infobox th:contains('Students') + td") %>%
+      html_text() %>%
+      unique()
+
+    # Extract only the numbers using regular expressions
+    cleaned_students <- as.numeric(gsub(",", "", str_extract(students, "[\\d,]+")))
+    students_data <- append(students_data, list(cleaned_students))
+  }
+
+  # Check if any element in 'Students' is NA before assigning
+  if (any(is.na(empty_tibble$Students))) {
+    empty_tibble$Students[is.na(empty_tibble$Students)] <- unlist(students_data)
+  }
+
+  # Remove columns named 'Undergraduates' and 'Postgraduates'
+  empty_tibble <- select(empty_tibble, -Undergraduates, -Postgraduates)
+  
+  
+  # Finally, return the table including the scraped information
   return(empty_tibble)
 }
 
 # Run the function using the URL from the Wikipedia page
 url <- "https://en.wikipedia.org/wiki/List_of_research_universities_in_the_United_States"
 
-result <- scrape_wikipedia_tables(url)
-print(head(result))
-
+universities_table <- scrape_wikipedia_tables(url)
+head(universities_table)
 ```
 
+#### Notes on the function
 
-### b. Gathering unstructured data
-Extend your webscraping function (or create a new function) so that it navigates to the dedicated Wikipedia page for each university, and captures three additional variables: 
+**Geographic Location**: Some universities have several sets of coordinates on their wikipedia sites. For instance, there are universities with multiple campuses whose geographic locations are all noted down on wikipedia. Therefore, the function above includes a line of code that specifies that only the very first set of coordinates is appended to the dataframe. Thereby, the geographic location column holds simplified data that potentially might not reflect the location of the entire university.
 
-vi. The geographic coordinates of the (main) university campus
-vii. The endowment of the university in USD dollars
-viii. The total number of students (including both undergraduate and postgraduate)
+**Endowment**: Not all universities we are interested in include information on the "endowment" on their wikipedia website. However, some university wikipedia articles include data on the university's "budget". Since endowment and budget likely refer to the same thing, I have included an if-statement in the function above, that specifies the following: If a university's wikipedia article does not hold information on the endowment, the function will look whether there is information on the budget and use this data instead. Nonetheless, there are a few universities that have neither the endowment nor the budget declared on wikipedia. For those instances, the endowment variable in our table will hold a missing values as specified in the following section.
 
+**Students**: On some websites, the total student body is not declared in a comprehensive way because it is split up by the different campusses of the university. Therefore, it is easier to scrape the data by adding the number of postgraduates and undergraduates than to write a function that can add all of the student bodies from different campusses of the individual universities. To ensure that also universities that only have postgraduates or undergraduates, and universities which only have a number for the total student body on their website, the code is modified. Firstly, an if-statement will ensure that for those instances with NA's for either variable postgraduates or undergraduates, the number from the variable without the NA is declared as the total student body. Secondly, for the instances that only include data on the total student body on the website, another webscraping is formulated that scrapes the "Students" data from the Wikipedia website and then adds this to the variable in our scraped data set.
 
-```{r code for creating the tibble of previous exercise}
-url <- "https://en.wikipedia.org/wiki/List_of_research_universities_in_the_United_States"
-table_indices <- c(19, 27)
-  
-# Storing the URL's HTML code
-html_content <- read_html(url)
-  
-# Extracting all tables in the document 
-tab <- html_table(html_content, fill = TRUE)
+#### Notes on missing values
 
-# Extract only the tables of interest given the input table_indices
-selected_tables <- tab[1:length(table_indices)]
+**Geographic Location**: There are missing values in the geographic location column. To be exact, the [University of Colorado Denver](https://en.wikipedia.org//wiki/University_of_Colorado_Denver) and the [University of Mississippi](https://en.wikipedia.org//wiki/University_of_Mississippi) do not have information on the geographic location on their wikipedia websites.
 
-# Iterate over tables and bind rows
-empty_tibble <- tibble()
-for (i in 1:length(selected_tables)) {
-  current_table <- as_tibble(selected_tables[[i]][, 1:4])
-  empty_tibble <- bind_rows(empty_tibble, current_table)
-}
-
-# Initialize an empty list to store hyperlinks
-hyperlinks_list <- list()
-
-# Iterate over the table indices and extract hyperlinks
-for (index in table_indices) {
-  table_nodes <- html_content %>%
-    html_nodes(paste("#mw-content-text > div.mw-content-ltr.mw-parser-output > table:nth-child(", index, ")", sep = ""))
-  
-  # Assuming you want to extract hyperlinks from the first table
-  current_node_set <- table_nodes[[1]]
-
-  hyperlinks_current_node <- current_node_set %>%
-    html_nodes("td:nth-child(1) a") %>%
-    html_attr("href")
-
-  # Append the hyperlinks to the list
-  hyperlinks_list <- c(hyperlinks_list, hyperlinks_current_node)
-}
-
-# Unlist to flatten the list
-hyperlinks_list <- unlist(hyperlinks_list, recursive = FALSE)
-
-# Concatenate the base URL to the extracted hyperlinks
-hyperlinks_list <- paste0("https://en.wikipedia.org/", hyperlinks_list)
-  
-# Add a new column 'Wikipedia_URL' with the extracted URLs
-empty_tibble$Wikipedia_URL <- hyperlinks_list
-print(empty_tibble)
-```
-
-
-
-
-
-
-#### Geographic Location
-
-
-```{r}
-
-# Exercise 2b
-
-
-### geographic location
-
-university_data <- list()
-
-for (hyperlink in hyperlinks_list) {
-  university_page <- read_html(hyperlink)
-   
-  # Extract the geographic location using the class selector 'geo_default'
-  geographic_location <- university_page %>%
-    html_nodes(".geo-dec") %>%
-    html_text() %>%
-    unique()
- 
-  # Store the scraped information in a list
-  university_data <- append(university_data, list(geographic_location))
-  
-}
-
-#empty_tibble <- empty_tibble %>%
-#  mutate(Geographic_Location = NA)
-
-# Add a new column 'Geographic_Location' with the scraped data
-empty_tibble$Geographic_Location <- university_data
-
-# The new variable Geographic_Location is a list of coordinate sets. We only want to keep the first set of coordinates
-# Assuming 'your_tibble' is your existing tibble with a "Geographic_Location" column
-empty_tibble <- empty_tibble %>%
-  mutate(Geographic_Location = map_chr(Geographic_Location, ~ .[1]))
-```
-
-**Note**: There are missing values. To be exact, the [University of Colorado Denver](https://en.wikipedia.org//wiki/University_of_Colorado_Denver) and the [University of Mississippi](https://en.wikipedia.org//wiki/University_of_Mississippi) do not have information on the geographic location on their wikipedia websites.
-
-
-#### Endowment
-
-```{r}
-# Exercise 2b
-
-
-### Endowment and budget
-
-endowment_data <- list()
-
-# Clean text by removing text within brackets
-clean_text <- function(text) {
-  # Remove text containing brackets within brackets
-  text <- gsub("\\([^()]*\\)", "", text)
-  # Remove text within square brackets
-  text <- gsub("\\[.*?\\]", "", text)
-  # Remove text within round brackets
-  text <- gsub("\\(.*?\\)", "", text)
-  return(text)
-}
-
-for (hyperlink in hyperlinks_list) {
-  university_page <- read_html(hyperlink)
-   
-  # Extract the endowment based on text content (entries with a dollar sign)
-  endowment <- university_page %>%
-    html_nodes("table.infobox th:contains('Endowment') + td") %>%
-    html_text() %>%
-    unique() %>%
-    clean_text()
-  
-
-  # Check if 'Endowment' entry exists, if not, extract 'Budget'
-  if (length(endowment) == 0) {
-    budget <- university_page %>%
-      html_nodes("table.infobox th:contains('Budget') + td") %>%
-      html_text() %>%
-      unique() %>%
-      clean_text()
-
-    endowment_data <- append(endowment_data, list(budget))
-  } else {
-    endowment_data <- append(endowment_data, list(endowment))
-  }
-}
-
-# Add a new column 'Endowment' with the scraped data
-empty_tibble$Endowment <- endowment_data
-empty_tibble <- empty_tibble %>%
-  mutate(Endowment = map_chr(Endowment, ~ .[1]))
-
-
-```
-
-
-**Note**: For some unis, there is no data on the endowment that is available on the wikipedia website. More precisely, the [Airforce Institute of Technology](https://en.wikipedia.org//wiki/Air_Force_Institute_of_Technology), [Azusa Pacific University](https://en.wikipedia.org/wiki/Azusa_Pacific_University), [Long Island University](https://en.wikipedia.org//wiki/LIU_Post	), and the [University of Missouri–St. Louis](https://en.wikipedia.org//wiki/University_of_Missouri%E2%80%93St._Louis	) do not have information on the website on endowment/budget.
-
-
-
-#### Total number of students 
-
-On some websites, the total student body is not declared in a comprehensive way because it is split up by the different campusses of the university. Therefore, it is easier to scrape the data by adding the number of postgraduates and undergraduates than to write a function that can add all of the student bodies from different campusses of the individual universities. To ensure that also universities that only have postgraduates or undergraduates, and universities which only have a number for the total student body on their website, the code is modified. Firstly, an if-statement will ensure that for those instances with NA's for either variable postgraduates or undergraduates, the number from the variable without the NA is declared as the total student body. Secondly, for the instances that only include data on the total student body on the website, another webscraping is formulated that scrapes the "Students" data from the Wikipedia website and then adds this to the variable in our scraped data set.
-
-
-```{r}
-
-# Exercise 2b
-
-
-### Students
-
-undergraduates_data <- list()
-postgraduates_data <- list()
-
-for (hyperlink in hyperlinks_list) {
-  university_page <- read_html(hyperlink)
-  
-  # Undergraduates 
-  # Extract the number of undergraduate students
-  undergraduates <- university_page %>%
-    html_nodes("table.infobox th:contains('Undergraduates') + td") %>%
-    html_text() %>%
-    unique()
-
-  # Extract only the numbers using regular expressions
-  cleaned_undergraduates <- str_extract(undergraduates, "[\\d,]+")
-  
-  # Assign NA if cleaned_undergraduates is empty
-  cleaned_undergraduates <- ifelse(length(cleaned_undergraduates) == 0, NA, cleaned_undergraduates)
-  
-  undergraduates_data <- append(undergraduates_data, list(cleaned_undergraduates))
-
-  
-  # Postgraduates 
-  # Extract the number of postgraduate students
-  postgraduates <- university_page %>%
-    html_nodes("table.infobox th:contains('Postgraduates') + td") %>%
-    html_text() %>%
-    unique()
-
-  # Extract only the numbers using regular expressions
-  cleaned_postgraduates <- str_extract(postgraduates, "[\\d,]+")
-  
-  # Assign NA if cleaned_undergraduates is empty
-  cleaned_postgraduates <- ifelse(length(cleaned_postgraduates) == 0, NA, cleaned_postgraduates)
-  
-  postgraduates_data <- append(postgraduates_data, list(cleaned_postgraduates))
-
-}
-
-# Remove commas from the extracted data and convert to numeric
-empty_tibble$Undergraduates <- as.numeric(gsub(",", "", unlist(undergraduates_data)))
-
-empty_tibble$Postgraduates <- as.numeric(gsub(",", "", unlist(postgraduates_data)))
-
-# Create a new column 'Students' as the sum of Undergraduates and Postgraduates
-empty_tibble$Students <- ifelse(is.na(empty_tibble$Undergraduates), 
-                                empty_tibble$Postgraduates, 
-                                ifelse(is.na(empty_tibble$Postgraduates), 
-                                       empty_tibble$Undergraduates, 
-                                       empty_tibble$Undergraduates + empty_tibble$Postgraduates))
-
-empty_tibble
-```
-
-
-
-If both undergraduates and graduates are missing on the respective website, we will scrape "Students" from the website.
-
-```{r}
-
-students_data <- list()
-
-for (hyperlink in hyperlinks_list) {
-  university_page <- read_html(hyperlink)
-   
-  # Extract the students
-  students <- university_page %>%
-    html_nodes("table.infobox th:contains('Students') + td") %>%
-    html_text() %>%
-    unique()
-
-  # Extract only the numbers using regular expressions
-  cleaned_students <- as.numeric(gsub(",", "", str_extract(students, "[\\d,]+")))
-  
-  students_data <- append(students_data, list(cleaned_students))
-}
-
-# Check if any element in 'Students' is NA before assigning
-if (any(is.na(empty_tibble$Students))) {
-  empty_tibble$Students[is.na(empty_tibble$Students)] <- unlist(students_data)
-}
-```
-
-
-```{r}
-
-# Remove columns named 'Undergraduates' and 'Postgraduates'
-empty_tibble <- select(empty_tibble, -Undergraduates, -Postgraduates)
-```
+**Endowment**: For some universities, there are no data on the endowment that is available on the wikipedia website. More precisely, the [Airforce Institute of Technology](https://en.wikipedia.org//wiki/Air_Force_Institute_of_Technology), [Azusa Pacific University](https://en.wikipedia.org/wiki/Azusa_Pacific_University), [Long Island University](https://en.wikipedia.org//wiki/LIU_Post	), and the [University of Missouri–St. Louis](https://en.wikipedia.org//wiki/University_of_Missouri%E2%80%93St._Louis	) do not have information on the website on endowment/budget.
 
 
 ### c. Data munging
 
-Download from the course website the `ivyleague.csv` file and store it appropriately on your local machine. We are going to use this file to focus our attention only on the subset of U.S. universities that are known as the "Ivy League."^[We are only narrowing our focus so that we do not do too much scraping for no real research purpose, not because the Ivy League is particularly important or interesting.] This file includes a **shortened** version of each university's name, the County and State in which the university's main campus is located (we will use these variables later), and the university's Employer Identification Number (EIN -- we will use this variable later). Call this file into `R` and create three new variables in your main table: 
+**Task**:
+Download from the course website the `ivyleague.csv` file and store it appropriately on your local machine. Call this file into `R` and create three new variables in your main table: 
 
 ix. An indicator for whether the university is an Ivy League institution
 x. The university's county (it would be wise to concatenate both county and state into a single string, separated by ",")
@@ -414,11 +337,11 @@ xi. The university's EIN (which can be missing for those universities not in the
 
 ```{r read in ivyleague.csv}
 
+# Note that the file "ivyleague.csv" muat be stored in the same folder as this RMarkdown.
+# If the file is stored in a different folder, the code below must be modified by including the correct path of the "ivyleague.csv* file.
+
 # Read the CSV file into a data frame
 ivyleagues <- read.csv("ivyleague.csv")
-
-# Note that I saved the file "ivyleague.csv" in the same folder as this RMarkdown.
-# If the file is located in a different folder, "ivyleague.csv" needs to be modified by including the correct path before reading in the dataa using read.csv
 
 # Display the first few rows of the ivyleagues data
 head(ivyleagues)
@@ -454,15 +377,15 @@ ivyleagues <- ivyleagues %>%
 ivyleagues <- ivyleagues %>%
   mutate(County = ifelse(!is.na(county), paste(county, state, sep = ", "), state))
 
-empty_tibble <- empty_tibble %>%
+universities_table <- universities_table %>%
   left_join(ivyleagues %>% select(full_name, ein, County), by = c("Institution" = "full_name")) %>%
   mutate(Ivy_League = ifelse(Institution %in% ivyleagues$full_name, 1, 0))
 
 
-empty_tibble <- empty_tibble %>% rename(EIN = ein)
+universities_table <- universities_table %>% rename(EIN = ein)
 
 # Filter for the entries that are ivy leagues to check whether the function properly assigned the ivy leagues
-empty_tibble %>%
+universities_table %>%
   filter(Ivy_League == 1)
 ```
 
@@ -476,7 +399,7 @@ Create a function to check for the existence and correct dimensionality of your 
 Firstly, we print out the first few lines of the data frame to ensure it is in a tidy format.
 
 ```{r print the first few rows of the dataframe}
-print(head(empty_tibble))
+print(head(universities_table))
 ```
 
 We can see that each row represents a university. To ensure that each row is representative of a unique observation, we use unique(). If the length of the unique values of the Institution variable in our tibble is equal to the length of the variable without using unique(), we can confirm that each row has a different value for “Institution” and thus does represent a unique observation.
@@ -485,8 +408,8 @@ We can see that each row represents a university. To ensure that each row is rep
 ```{r check if each row holds one unique observation}
 
 # Check if the rows in the dataframe each hold one unique university 
-if (length(unique(empty_tibble$Institution)) == length(empty_tibble$Institution)) {
-  answer <- sprintf("There are %d unique universities in the dataframe 'universities' that are each represented by exactly one row. The data is tidy.", length(unique(empty_tibble$Institution)))
+if (length(unique(universities_table$Institution)) == length(universities_table$Institution)) {
+  answer <- sprintf("There are %d unique universities in the dataframe 'universities' that are each represented by exactly one row. The data is tidy.", length(unique(universities_table$Institution)))
   print(answer)
 } else {
   print("Not every row holds the data of a unique university. The data is not tidy.")
@@ -498,7 +421,7 @@ To check whether the columns correspond to the 11 variables that we are interest
 ```{r check if each variable is represented by one column}
 
 # Check if each column corresponds to one of the 11 variables
-summary(empty_tibble)
+summary(universities_table)
 ```
 
 As we can see, the data is tidy. Each row represents a unique university and each column holds one variables. In total, we have 279 observations and 11 variables.
@@ -511,7 +434,7 @@ We write the table to the relational database "db". using a simple query that se
 
 # Adding the table to the relational database
 # Only include overwrite = TRUE for practicing purpose
-dbWriteTable(db, "universities", empty_tibble, overwrite = TRUE)
+dbWriteTable(db, "universities", universities_table, overwrite = TRUE)
 
 # Testing that it worked with a simple query
 dbGetQuery(db, "SELECT * FROM universities LIMIT 8")
