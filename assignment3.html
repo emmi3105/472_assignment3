@@ -403,34 +403,44 @@ print(file.exists(&quot;universities_db.sqlite&quot;))</code></pre>
 <h2>Exercise 2</h2>
 <div id="a.-gathering-structured-data" class="section level3">
 <h3>a. Gathering structured data</h3>
-<p>Write an automatic webscraping function in R that constructs a table
-(as e.g. a data frame, a tibble, or a data table) of all R1 (Very High
-Research Activity) <strong>and</strong> R2 (High Research Activity)
-Research Universities in the United States of America. These data can be
-found on <a href="https://en.wikipedia.org/wiki/List_of_research_universities_in_the_United_States">wikipedia</a>.</p>
-<p>Your initial scraper should collect five variables:</p>
+<p><strong>Task</strong> Write an automatic webscraping function in R
+that constructs a table (as e.g. a data frame, a tibble, or a data
+table) of all R1 (Very High Research Activity) <strong>and</strong> R2
+(High Research Activity) Research Universities in the United States of
+America. These data can be found on <a href="https://en.wikipedia.org/wiki/List_of_research_universities_in_the_United_States">wikipedia</a>.</p>
+<p><strong>Note</strong>: The solution to Exercise 2a can be found under
+the solution for Exercise 2b.</p>
+</div>
+<div id="b.-gathering-unstructured-data" class="section level3">
+<h3>b. Gathering unstructured data</h3>
+<p><strong>Task</strong> Extend your webscraping function (or create a
+new function) so that it navigates to the dedicated Wikipedia page for
+each university, and captures three additional variables.</p>
+<div id="automatic-webscraping-function-for-2a-and-b" class="section level4">
+<h4>Automatic webscraping function for 2a and b</h4>
+<p>I combined exercise 2a and 2b and directly wrote a webscraping
+function called scrape_wikipedia_tables that returns a dataframe with
+the following variables:</p>
 <ol style="list-style-type: lower-roman">
 <li>The university’s name</li>
 <li>It’s status (public or private)</li>
 <li>The city in which it is located</li>
 <li>The state in which it is located</li>
 <li>The URL of the university’s dedicated Wikipedia page</li>
-</ol>
-</div>
-<div id="b.-gathering-unstructured-data" class="section level3">
-<h3>b. Gathering unstructured data</h3>
-<p>Extend your webscraping function (or create a new function) so that
-it navigates to the dedicated Wikipedia page for each university, and
-captures three additional variables:</p>
-<ol start="6" style="list-style-type: lower-roman">
 <li>The geographic coordinates of the (main) university campus</li>
 <li>The endowment of the university in USD dollars</li>
 <li>The total number of students (including both undergraduate and
 postgraduate)</li>
 </ol>
-<div id="write-and-run-the-automatic-webscraping-function-for-2a-and-b" class="section level4">
-<h4>Write and run the automatic webscraping function for 2a and b</h4>
+<p>The first few rows of the resulting table “universities_table” are
+printed out below. Furthermore, in the following two sections, the
+function is explained in more detail.</p>
 <pre class="r"><code>scrape_wikipedia_tables &lt;- function(url) {
+  # Input: URL to wikipedia
+  # Function accesses wikipedia articles on universities and scrapes information from the wikipedia pages.
+  # Output: A table with information on US American R1 and R2 universities. More precisely, the table holds the university&#39;s name, status (private or public), city, state, the url to the university&#39;s Wikipedia page, the university&#39;s geographic coordinates, endowment, and number of total students.
+  
+  ### Exercise 2a: scrape information on the name, status, city, state and the url to the wikipedia page
   table_indices &lt;- c(19, 27)
   
   # Storing the URL&#39;s HTML code
@@ -453,12 +463,10 @@ postgraduate)</li>
   hyperlinks_list &lt;- list()
 
   # Iterate over the table indices and extract hyperlinks
-
   for (index in table_indices) {
     table_nodes &lt;- html_content %&gt;%
       html_nodes(paste(&quot;#mw-content-text &gt; div.mw-content-ltr.mw-parser-output &gt; table:nth-child(&quot;, index, &quot;)&quot;, sep = &quot;&quot;))
   
-    # Assuming you want to extract hyperlinks from the first table
     current_node_set &lt;- table_nodes[[1]]
   
     hyperlinks_current_node &lt;- current_node_set %&gt;%
@@ -472,7 +480,6 @@ postgraduate)</li>
   # Unlist to flatten the list
   hyperlinks_list &lt;- unlist(hyperlinks_list, recursive = FALSE)
 
-
   # Concatenate the base URL to the extracted hyperlinks
   hyperlinks_list &lt;- paste0(&quot;https://en.wikipedia.org/&quot;, hyperlinks_list)
   
@@ -480,10 +487,9 @@ postgraduate)</li>
   empty_tibble$Wikipedia_URL &lt;- hyperlinks_list
 
     
+  ### Exercise 2b: Add the geographic location, endowment and students
   
-  ###### Add the geographic location, endowment and students
-  
-  ### Geographic location
+  #### Geographic location
 
   university_data &lt;- list()
 
@@ -504,12 +510,11 @@ postgraduate)</li>
   # Add a new column &#39;Geographic_Location&#39; with the scraped data
   empty_tibble$Geographic_Location &lt;- university_data
 
-  # The new variable Geographic_Location is a list of coordinate sets. We only want to keep the first set of coordinates
-  # Assuming &#39;your_tibble&#39; is your existing tibble with a &quot;Geographic_Location&quot; column
+  # Keep the first set of coordinates only
   empty_tibble &lt;- empty_tibble %&gt;%
     mutate(Geographic_Location = map_chr(Geographic_Location, ~ .[1]))
   
-  ### Endowment and budget
+  #### Endowment and budget
 
   endowment_data &lt;- list()
 
@@ -555,8 +560,10 @@ postgraduate)</li>
     mutate(Endowment = map_chr(Endowment, ~ .[1]))
 
 
-  ### Students
-
+  #### Students
+  
+  # To avoid issues with students being spread on different campuses, scrape total student information by adding information on all undergraduates to all postgraduates
+  
   undergraduates_data &lt;- list()
   postgraduates_data &lt;- list()
 
@@ -575,10 +582,8 @@ postgraduate)</li>
   
     # Assign NA if cleaned_undergraduates is empty
     cleaned_undergraduates &lt;- ifelse(length(cleaned_undergraduates) == 0, NA, cleaned_undergraduates)
-  
     undergraduates_data &lt;- append(undergraduates_data, list(cleaned_undergraduates))
 
-  
     # Postgraduates 
     # Extract the number of postgraduate students
     postgraduates &lt;- university_page %&gt;%
@@ -589,16 +594,13 @@ postgraduate)</li>
     # Extract only the numbers using regular expressions
     cleaned_postgraduates &lt;- str_extract(postgraduates, &quot;[\\d,]+&quot;)
   
-    # Assign NA if cleaned_undergraduates is empty
+    # Assign NA if cleaned_postgraduates is empty
     cleaned_postgraduates &lt;- ifelse(length(cleaned_postgraduates) == 0, NA, cleaned_postgraduates)
-  
     postgraduates_data &lt;- append(postgraduates_data, list(cleaned_postgraduates))
-
   }
 
   # Remove commas from the extracted data and convert to numeric
   empty_tibble$Undergraduates &lt;- as.numeric(gsub(&quot;,&quot;, &quot;&quot;, unlist(undergraduates_data)))
-
   empty_tibble$Postgraduates &lt;- as.numeric(gsub(&quot;,&quot;, &quot;&quot;, unlist(postgraduates_data)))
 
   # Create a new column &#39;Students&#39; as the sum of Undergraduates and Postgraduates
@@ -608,10 +610,7 @@ postgraduate)</li>
                                         empty_tibble$Undergraduates, 
                                         empty_tibble$Undergraduates + empty_tibble$Postgraduates))
 
-
-
-
-  #If both undergraduates and graduates are missing on the respective website, we will scrape &quot;Students&quot; from the website.
+  # If the website neither holds information on undergraduates nor on postgraduates, look for information on total students
 
   students_data &lt;- list()
 
@@ -626,7 +625,6 @@ postgraduate)</li>
 
     # Extract only the numbers using regular expressions
     cleaned_students &lt;- as.numeric(gsub(&quot;,&quot;, &quot;&quot;, str_extract(students, &quot;[\\d,]+&quot;)))
-  
     students_data &lt;- append(students_data, list(cleaned_students))
   }
 
@@ -639,6 +637,7 @@ postgraduate)</li>
   empty_tibble &lt;- select(empty_tibble, -Undergraduates, -Postgraduates)
   
   
+  # Finally, return the table including the scraped information
   return(empty_tibble)
 }
 
@@ -661,11 +660,28 @@ universities_table &lt;- scrape_wikipedia_tables(url)</code></pre>
 ## 6 Boston Univer… Privat… Bost… MA    https://en.w… 42.34889°N 71.1002… &quot;$3.2 bi…
 ## # ℹ 1 more variable: Students &lt;dbl&gt;</code></pre>
 </div>
-</div>
-<div id="notes-on-the-function" class="section level3">
-<h3>Notes on the function</h3>
-<p><strong>Endowment</strong>: Explain why you went through endowment
-and budget</p>
+<div id="notes-on-the-function" class="section level4">
+<h4>Notes on the function</h4>
+<p><strong>Geographic Location</strong>: Some universities have several
+sets of coordinates on their wikipedia sites. For instance, there are
+universities with multiple campuses whose geographic locations are all
+noted down on wikipedia. Therefore, the function above includes a line
+of code that specifies that only the very first set of coordinates is
+appended to the dataframe. Thereby, the geographic location column holds
+simplified data that potentially might not reflect the location of the
+entire university.</p>
+<p><strong>Endowment</strong>: Not all universities we are interested in
+include information on the “endowment” on their wikipedia website.
+However, some university wikipedia articles include data on the
+university’s “budget”. Since endowment and budget likely refer to the
+same thing, I have included an if-statement in the function above, that
+specifies the following: If a university’s wikipedia article does not
+hold information on the endowment, the function will look whether there
+is information on the budget and use this data instead. Nonetheless,
+there are a few universities that have neither the endowment nor the
+budget declared on wikipedia. For those instances, the endowment
+variable in our table will hold a missing values as specified in the
+following section.</p>
 <p><strong>Students</strong>: On some websites, the total student body
 is not declared in a comprehensive way because it is split up by the
 different campusses of the university. Therefore, it is easier to scrape
@@ -683,8 +699,8 @@ website, another webscraping is formulated that scrapes the “Students”
 data from the Wikipedia website and then adds this to the variable in
 our scraped data set.</p>
 </div>
-<div id="notes-on-missing-values" class="section level3">
-<h3>Notes on missing values</h3>
+<div id="notes-on-missing-values" class="section level4">
+<h4>Notes on missing values</h4>
 <p><strong>Geographic Location</strong>: There are missing values in the
 geographic location column. To be exact, the <a href="https://en.wikipedia.org//wiki/University_of_Colorado_Denver">University
 of Colorado Denver</a> and the <a href="https://en.wikipedia.org//wiki/University_of_Mississippi">University
@@ -699,17 +715,13 @@ University</a>, and the <a href="https://en.wikipedia.org//wiki/University_of_Mi
 of Missouri–St. Louis</a> do not have information on the website on
 endowment/budget.</p>
 </div>
+</div>
 <div id="c.-data-munging" class="section level3">
 <h3>c. Data munging</h3>
-<p>Download from the course website the <code>ivyleague.csv</code> file
-and store it appropriately on your local machine. We are going to use
-this file to focus our attention only on the subset of U.S. universities
-that are known as the “Ivy League.”<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a> This file includes a
-<strong>shortened</strong> version of each university’s name, the County
-and State in which the university’s main campus is located (we will use
-these variables later), and the university’s Employer Identification
-Number (EIN – we will use this variable later). Call this file into
-<code>R</code> and create three new variables in your main table:</p>
+<p><strong>Task</strong>: Download from the course website the
+<code>ivyleague.csv</code> file and store it appropriately on your local
+machine. Call this file into <code>R</code> and create three new
+variables in your main table:</p>
 <ol start="9" style="list-style-type: lower-roman">
 <li>An indicator for whether the university is an Ivy League
 institution</li>
@@ -816,7 +828,7 @@ are interested in, we use summary().</p>
 ##  Length:279         Length:279          Length:279         Min.   :  1726  
 ##  Class :character   Class :character    Class :character   1st Qu.: 11710  
 ##  Mode  :character   Mode  :character    Mode  :character   Median : 19618  
-##                                                            Mean   : 24011  
+##                                                            Mean   : 24007  
 ##                                                            3rd Qu.: 32121  
 ##                                                            Max.   :142636  
 ##                                                                            
@@ -899,7 +911,7 @@ file.</p>
 <h2>Exercise 3</h2>
 <p>We are now going to use the <code>Rselenium</code> package to explore
 the <a href="https://www.shanghairanking.com/">Academic Ranking of World
-Universities</a>.<a href="#fn2" class="footnote-ref" id="fnref2"><sup>2</sup></a></p>
+Universities</a>.<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a></p>
 <div id="a.-scraping-annual-rank" class="section level3">
 <h3>a. Scraping annual rank</h3>
 <p>Create a webscraper that returns, for the <strong>Ivy League
@@ -918,95 +930,6 @@ Exercise 2.d. Include only the call to the function and the output in
 the main section of your <code>.html</code> file.</p>
 <div id="launch-the-browser" class="section level4">
 <h4>Launch the browser</h4>
-<pre><code>## checking Selenium Server versions:</code></pre>
-<pre><code>## BEGIN: PREDOWNLOAD</code></pre>
-<pre><code>## BEGIN: DOWNLOAD</code></pre>
-<pre><code>## BEGIN: POSTDOWNLOAD</code></pre>
-<pre><code>## checking geckodriver versions:</code></pre>
-<pre><code>## BEGIN: PREDOWNLOAD</code></pre>
-<pre><code>## BEGIN: DOWNLOAD</code></pre>
-<pre><code>## BEGIN: POSTDOWNLOAD</code></pre>
-<pre><code>## checking phantomjs versions:</code></pre>
-<pre><code>## BEGIN: PREDOWNLOAD</code></pre>
-<pre><code>## BEGIN: DOWNLOAD</code></pre>
-<pre><code>## BEGIN: POSTDOWNLOAD</code></pre>
-<pre><code>## [1] &quot;Connecting to remote server&quot;
-## $acceptInsecureCerts
-## [1] FALSE
-## 
-## $browserName
-## [1] &quot;firefox&quot;
-## 
-## $browserVersion
-## [1] &quot;107.0.1&quot;
-## 
-## $`moz:accessibilityChecks`
-## [1] FALSE
-## 
-## $`moz:buildID`
-## [1] &quot;20221128144904&quot;
-## 
-## $`moz:geckodriverVersion`
-## [1] &quot;0.33.0&quot;
-## 
-## $`moz:headless`
-## [1] FALSE
-## 
-## $`moz:platformVersion`
-## [1] &quot;22.1.0&quot;
-## 
-## $`moz:processID`
-## [1] 17616
-## 
-## $`moz:profile`
-## [1] &quot;/var/folders/33/gftgqnd57td6_z801dxqfyy40000gp/T/rust_mozprofilehRa00A&quot;
-## 
-## $`moz:shutdownTimeout`
-## [1] 60000
-## 
-## $`moz:useNonSpecCompliantPointerOrigin`
-## [1] FALSE
-## 
-## $`moz:webdriverClick`
-## [1] TRUE
-## 
-## $`moz:windowless`
-## [1] FALSE
-## 
-## $pageLoadStrategy
-## [1] &quot;normal&quot;
-## 
-## $platformName
-## [1] &quot;mac&quot;
-## 
-## $proxy
-## named list()
-## 
-## $setWindowRect
-## [1] TRUE
-## 
-## $strictFileInteractability
-## [1] FALSE
-## 
-## $timeouts
-## $timeouts$implicit
-## [1] 0
-## 
-## $timeouts$pageLoad
-## [1] 300000
-## 
-## $timeouts$script
-## [1] 30000
-## 
-## 
-## $unhandledPromptBehavior
-## [1] &quot;dismiss and notify&quot;
-## 
-## $webdriver.remote.sessionid
-## [1] &quot;a96136ba-2aa1-4ef9-8024-c8c5b41201db&quot;
-## 
-## $id
-## [1] &quot;a96136ba-2aa1-4ef9-8024-c8c5b41201db&quot;</code></pre>
 </div>
 <div id="navigate-to-the-shanghai-ranking-website" class="section level4">
 <h4>Navigate to the shanghai ranking website</h4>
@@ -1040,52 +963,28 @@ can be seen.</p>
 </div>
 <div id="extract-the-rank" class="section level4">
 <h4>Extract the rank</h4>
-<pre><code>##                  Institution Year    Rank
-## 1 University of Pennsylvania 2023      14
-## 2           Brown University 2023      98
-## 3        Columbia University 2023       8
-## 4         Cornell University 2023      12
-## 5          Dartmouth College 2023 301-400
-## 6         Harvard University 2023       1
-## 7       Princeton University 2023       6
-## 8            Yale University 2023      11</code></pre>
-<pre><code>##                  Institution Year    Rank
-## 1 University of Pennsylvania 2003      18
-## 2           Brown University 2003      49
-## 3        Columbia University 2003      10
-## 4         Cornell University 2003      12
-## 5          Dartmouth College 2003 102-151
-## 6         Harvard University 2003       1
-## 7       Princeton University 2003       7
-## 8            Yale University 2003       8</code></pre>
-<pre><code>##                  Institution Year    Rank
-## 1 University of Pennsylvania 2013      15
-## 2           Brown University 2013      67
-## 3        Columbia University 2013       8
-## 4         Cornell University 2013      13
-## 5          Dartmouth College 2013 151-200
-## 6         Harvard University 2013       1
-## 7       Princeton University 2013       7
-## 8            Yale University 2013      11</code></pre>
 </div>
 <div id="write-it-to-the-database" class="section level4">
 <h4>Write it to the database</h4>
-<pre><code>##                       Institution  Rank
-## 1 University of Pennsylvania-2003  18.0
-## 2           Brown University-2003  49.0
-## 3        Columbia University-2003  10.0
-## 4         Cornell University-2003  12.0
-## 5          Dartmouth College-2003 126.5
-## 6         Harvard University-2003   1.0
-## 7       Princeton University-2003   7.0
-## 8            Yale University-2003   8.0</code></pre>
+<pre><code>##                  Institution Year  Rank
+## 1 University of Pennsylvania 2003  18.0
+## 2           Brown University 2003  49.0
+## 3        Columbia University 2003  10.0
+## 4         Cornell University 2003  12.0
+## 5          Dartmouth College 2003 126.5
+## 6         Harvard University 2003   1.0
+## 7       Princeton University 2003   7.0
+## 8            Yale University 2003   8.0</code></pre>
 </div>
 <div id="check-the-existence-of-the-table" class="section level4">
 <h4>Check the existence of the table</h4>
 <pre><code>## The table exists and has the following dimensions: 
 ## Number of rows: 24 
-## Number of columns: 2 
-## Column names: c(&quot;Institution&quot;, &quot;Rank&quot;)</code></pre>
+## Number of columns: 3 
+## Column names: c(&quot;Institution&quot;, &quot;Year&quot;, &quot;Rank&quot;)</code></pre>
+</div>
+<div id="navigate-back-to-the-home-page" class="section level4">
+<h4>Navigate back to the home page</h4>
 </div>
 </div>
 <div id="b.-scraping-subject-ranks-for-2023" class="section level3">
@@ -1104,13 +1003,63 @@ clearly named – to your relational database. Check for the existence and
 correct dimensionality of your written table using the function you
 wrote in Exercise 2.d. Include only the call to the function and the
 output in the main section of your <code>.html</code> file.</p>
+<div id="preparation-for-the-scraping-1" class="section level4">
+<h4>Preparation for the scraping</h4>
+<ol start="0" style="list-style-type: decimal">
+<li><p>Navigate to page with the data on the university ranking by
+subject</p></li>
+<li><p>Function that searches for each ivy league university in the
+dataframe and selects the first result</p></li>
+<li><p>Function that filters for the social sciences</p></li>
+<li><p>Scrape the ranks</p></li>
+</ol>
+</div>
+<div id="scrape" class="section level4">
+<h4>Scrape</h4>
+</div>
+<div id="calculate-the-midpoint-for-the-rank" class="section level4">
+<h4>Calculate the midpoint for the rank</h4>
+</div>
+<div id="write-the-table-to-the-database" class="section level4">
+<h4>Write the table to the database</h4>
+<pre><code>##                   Institution                       Subject Number
+## 1  University of Pennsylvania                     Economics   14.0
+## 2  University of Pennsylvania                    Statistics    3.0
+## 3  University of Pennsylvania                           Law    3.0
+## 4  University of Pennsylvania            Political Sciences   10.0
+## 5  University of Pennsylvania                     Sociology   22.0
+## 6  University of Pennsylvania                     Education   10.0
+## 7  University of Pennsylvania                 Communication   13.0
+## 8  University of Pennsylvania                    Psychology    6.0
+## 9  University of Pennsylvania       Business Administration   63.0
+## 10 University of Pennsylvania                       Finance    2.0
+## 11 University of Pennsylvania                    Management    4.0
+## 12 University of Pennsylvania         Public Administration  175.5
+## 13 University of Pennsylvania Library &amp; Information Science   24.0
+## 14           Brown University                     Economics   46.0
+## 15           Brown University                    Statistics   88.0
+## 16           Brown University                           Law   88.0
+## 17           Brown University            Political Sciences   63.0
+## 18           Brown University                     Sociology   32.0
+## 19           Brown University                     Education   63.0
+## 20           Brown University                    Psychology   63.0</code></pre>
+</div>
+<div id="check-the-existence-of-the-table-1" class="section level4">
+<h4>Check the existence of the table</h4>
+<pre><code>## The table exists and has the following dimensions: 
+## Number of rows: 86 
+## Number of columns: 3 
+## Column names: c(&quot;Institution&quot;, &quot;Subject&quot;, &quot;Number&quot;)</code></pre>
+</div>
+<div id="navigate-back-to-the-homepage" class="section level4">
+<h4>Navigate back to the homepage</h4>
+</div>
 </div>
 </div>
 <div id="close-the-stuff-again" class="section level2">
 <h2>Close the stuff again</h2>
 <p>Finally, let us close the driver and browser window before closing
 R:</p>
-<pre><code>## [1] TRUE</code></pre>
 <pre><code>## Warning in system(&quot;taskkill /im java.exe /f&quot;, intern = FALSE, ignore.stdout =
 ## FALSE): error in running command</code></pre>
 </div>
@@ -1147,6 +1096,11 @@ db &lt;- dbConnect(RSQLite::SQLite(), &quot;universities_db.sqlite&quot;)
 print(file.exists(&quot;universities_db.sqlite&quot;))
 
 scrape_wikipedia_tables &lt;- function(url) {
+  # Input: URL to wikipedia
+  # Function accesses wikipedia articles on universities and scrapes information from the wikipedia pages.
+  # Output: A table with information on US American R1 and R2 universities. More precisely, the table holds the university&#39;s name, status (private or public), city, state, the url to the university&#39;s Wikipedia page, the university&#39;s geographic coordinates, endowment, and number of total students.
+  
+  ### Exercise 2a: scrape information on the name, status, city, state and the url to the wikipedia page
   table_indices &lt;- c(19, 27)
   
   # Storing the URL&#39;s HTML code
@@ -1169,12 +1123,10 @@ scrape_wikipedia_tables &lt;- function(url) {
   hyperlinks_list &lt;- list()
 
   # Iterate over the table indices and extract hyperlinks
-
   for (index in table_indices) {
     table_nodes &lt;- html_content %&gt;%
       html_nodes(paste(&quot;#mw-content-text &gt; div.mw-content-ltr.mw-parser-output &gt; table:nth-child(&quot;, index, &quot;)&quot;, sep = &quot;&quot;))
   
-    # Assuming you want to extract hyperlinks from the first table
     current_node_set &lt;- table_nodes[[1]]
   
     hyperlinks_current_node &lt;- current_node_set %&gt;%
@@ -1188,7 +1140,6 @@ scrape_wikipedia_tables &lt;- function(url) {
   # Unlist to flatten the list
   hyperlinks_list &lt;- unlist(hyperlinks_list, recursive = FALSE)
 
-
   # Concatenate the base URL to the extracted hyperlinks
   hyperlinks_list &lt;- paste0(&quot;https://en.wikipedia.org/&quot;, hyperlinks_list)
   
@@ -1196,10 +1147,9 @@ scrape_wikipedia_tables &lt;- function(url) {
   empty_tibble$Wikipedia_URL &lt;- hyperlinks_list
 
     
+  ### Exercise 2b: Add the geographic location, endowment and students
   
-  ###### Add the geographic location, endowment and students
-  
-  ### Geographic location
+  #### Geographic location
 
   university_data &lt;- list()
 
@@ -1220,12 +1170,11 @@ scrape_wikipedia_tables &lt;- function(url) {
   # Add a new column &#39;Geographic_Location&#39; with the scraped data
   empty_tibble$Geographic_Location &lt;- university_data
 
-  # The new variable Geographic_Location is a list of coordinate sets. We only want to keep the first set of coordinates
-  # Assuming &#39;your_tibble&#39; is your existing tibble with a &quot;Geographic_Location&quot; column
+  # Keep the first set of coordinates only
   empty_tibble &lt;- empty_tibble %&gt;%
     mutate(Geographic_Location = map_chr(Geographic_Location, ~ .[1]))
   
-  ### Endowment and budget
+  #### Endowment and budget
 
   endowment_data &lt;- list()
 
@@ -1271,8 +1220,10 @@ scrape_wikipedia_tables &lt;- function(url) {
     mutate(Endowment = map_chr(Endowment, ~ .[1]))
 
 
-  ### Students
-
+  #### Students
+  
+  # To avoid issues with students being spread on different campuses, scrape total student information by adding information on all undergraduates to all postgraduates
+  
   undergraduates_data &lt;- list()
   postgraduates_data &lt;- list()
 
@@ -1291,10 +1242,8 @@ scrape_wikipedia_tables &lt;- function(url) {
   
     # Assign NA if cleaned_undergraduates is empty
     cleaned_undergraduates &lt;- ifelse(length(cleaned_undergraduates) == 0, NA, cleaned_undergraduates)
-  
     undergraduates_data &lt;- append(undergraduates_data, list(cleaned_undergraduates))
 
-  
     # Postgraduates 
     # Extract the number of postgraduate students
     postgraduates &lt;- university_page %&gt;%
@@ -1305,16 +1254,13 @@ scrape_wikipedia_tables &lt;- function(url) {
     # Extract only the numbers using regular expressions
     cleaned_postgraduates &lt;- str_extract(postgraduates, &quot;[\\d,]+&quot;)
   
-    # Assign NA if cleaned_undergraduates is empty
+    # Assign NA if cleaned_postgraduates is empty
     cleaned_postgraduates &lt;- ifelse(length(cleaned_postgraduates) == 0, NA, cleaned_postgraduates)
-  
     postgraduates_data &lt;- append(postgraduates_data, list(cleaned_postgraduates))
-
   }
 
   # Remove commas from the extracted data and convert to numeric
   empty_tibble$Undergraduates &lt;- as.numeric(gsub(&quot;,&quot;, &quot;&quot;, unlist(undergraduates_data)))
-
   empty_tibble$Postgraduates &lt;- as.numeric(gsub(&quot;,&quot;, &quot;&quot;, unlist(postgraduates_data)))
 
   # Create a new column &#39;Students&#39; as the sum of Undergraduates and Postgraduates
@@ -1324,10 +1270,7 @@ scrape_wikipedia_tables &lt;- function(url) {
                                         empty_tibble$Undergraduates, 
                                         empty_tibble$Undergraduates + empty_tibble$Postgraduates))
 
-
-
-
-  #If both undergraduates and graduates are missing on the respective website, we will scrape &quot;Students&quot; from the website.
+  # If the website neither holds information on undergraduates nor on postgraduates, look for information on total students
 
   students_data &lt;- list()
 
@@ -1342,7 +1285,6 @@ scrape_wikipedia_tables &lt;- function(url) {
 
     # Extract only the numbers using regular expressions
     cleaned_students &lt;- as.numeric(gsub(&quot;,&quot;, &quot;&quot;, str_extract(students, &quot;[\\d,]+&quot;)))
-  
     students_data &lt;- append(students_data, list(cleaned_students))
   }
 
@@ -1355,6 +1297,7 @@ scrape_wikipedia_tables &lt;- function(url) {
   empty_tibble &lt;- select(empty_tibble, -Undergraduates, -Postgraduates)
   
   
+  # Finally, return the table including the scraped information
   return(empty_tibble)
 }
 
@@ -1364,11 +1307,11 @@ url &lt;- &quot;https://en.wikipedia.org/wiki/List_of_research_universities_in_t
 universities_table &lt;- scrape_wikipedia_tables(url)
 head(universities_table)
 
+# Note that the file &quot;ivyleague.csv&quot; muat be stored in the same folder as this RMarkdown.
+# If the file is stored in a different folder, the code below must be modified by including the correct path of the &quot;ivyleague.csv* file.
+
 # Read the CSV file into a data frame
 ivyleagues &lt;- read.csv(&quot;ivyleague.csv&quot;)
-
-# Note that I saved the file &quot;ivyleague.csv&quot; in the same folder as this RMarkdown.
-# If the file is located in a different folder, &quot;ivyleague.csv&quot; needs to be modified by including the correct path before reading in the dataa using read.csv
 
 # Display the first few rows of the ivyleagues data
 head(ivyleagues)
@@ -1448,8 +1391,10 @@ check_table &lt;- function(db, a_table){
 check_table(db, &quot;universities&quot;)
 
 # Launch the driver and browser
-rD &lt;- rsDriver(browser=c(&quot;firefox&quot;), port = free_port(random = TRUE), chromever = NULL) 
-driver &lt;- rD$client
+invisible(capture.output({
+  rD &lt;- rsDriver(browser=c(&quot;firefox&quot;), port = free_port(random = TRUE), chromever = NULL) 
+  driver &lt;- rD$client
+}))
 
 # Navigate to the website
 url &lt;- &quot;https://www.shanghairanking.com/&quot;
@@ -1601,18 +1546,20 @@ for (i in seq_along(ivyleagues_03$Institution)) {
 
 }
 
-print(ivyleagues_23)
-print(ivyleagues_03)
-print(ivyleagues_13)
+#print(ivyleagues_23)
+#print(ivyleagues_03)
+#print(ivyleagues_13)
 
-ivyleagues_03$Institution &lt;- paste(ivyleagues_03$Institution, ivyleagues_03$Year, sep = &quot;-&quot;)
-ivyleagues_03$Year &lt;- NULL
 
-ivyleagues_13$Institution &lt;- paste(ivyleagues_13$Institution, ivyleagues_13$Year, sep = &quot;-&quot;)
-ivyleagues_13$Year &lt;- NULL
+# We actually do not want this -&gt; does not make sense with regard to relational database
+#ivyleagues_03$Institution &lt;- paste(ivyleagues_03$Institution, ivyleagues_03$Year, sep = &quot;-&quot;)
+#ivyleagues_03$Year &lt;- NULL
 
-ivyleagues_23$Institution &lt;- paste(ivyleagues_23$Institution, ivyleagues_23$Year, sep = &quot;-&quot;)
-ivyleagues_23$Year &lt;- NULL
+#ivyleagues_13$Institution &lt;- paste(ivyleagues_13$Institution, ivyleagues_13$Year, sep = &quot;-&quot;)
+#ivyleagues_13$Year &lt;- NULL
+
+#ivyleagues_23$Institution &lt;- paste(ivyleagues_23$Institution, ivyleagues_23$Year, sep = &quot;-&quot;)
+#ivyleagues_23$Year &lt;- NULL
 
 
 # Merge all three data sets
@@ -1637,10 +1584,309 @@ dbWriteTable(db, &quot;ivyleagues_ranks&quot;, ivyleagues_ranks, overwrite = TRU
 dbGetQuery(db, &quot;SELECT * FROM ivyleagues_ranks LIMIT 8&quot;)
 
 check_table(db, &quot;ivyleagues_ranks&quot;)
+
+# Navigate to the home page to make it easier to keep working on this website
+home_page &lt;- driver$findElement(using = &quot;xpath&quot;, value = &#39;/html/body/div/div/div/div[1]/div[1]/div/div[2]/ul/li[1]/a&#39;)
+  
+# Click on the element
+home_page$clickElement()
+
+# A function that navigates to the page with the subject rankings
+navigate_universities &lt;- function() {
+  universities_ranks &lt;- driver$findElement(using = &quot;xpath&quot;, value = &#39;/html/body/div/div/div/div[1]/div[1]/div/div[2]/ul/li[3]&#39;)
+  universities_ranks$clickElement()
+}
+
+navigate_universities()
+
+# A function that searches for each ivy league university 
+search_general_ranking &lt;- function(term) {
+  
+  # Find the search field, clear it, and enter the new search term, e.g. &quot;Harvard University&quot;
+  search_field &lt;- driver$findElement(using = &quot;xpath&quot;, value = &#39;/html/body/div/div/div/div[2]/div[1]/div/div/div/input&#39;)
+  search_field$clearElement()
+  search_field$sendKeysToElement(list(term))
+  
+  # Wait for one second and then press the enter key
+  Sys.sleep(2)
+  search_field$sendKeysToElement(list(key = &quot;enter&quot;))
+  
+  # Select the first element
+  Sys.sleep(2)
+  first_result &lt;- driver$findElement(using = &quot;xpath&quot;, value = &#39;/html/body/div/div/div/div[2]/div[2]/div[1]/div[2]&#39;) 
+  first_result$clickElement()
+
+}
+
+# Test
+#navigate_universities() 
+#Sys.sleep(2)
+#search_general_ranking(&quot;University of Pennsylvania&quot;)
+#navigate_universities() 
+#Sys.sleep(2)
+#search_general_ranking(&quot;Yale University&quot;)
+#navigate_universities() 
+#Sys.sleep(2)
+#search_general_ranking(&quot;Princeton University&quot;)
+
+
+# A function that filters for the social sciences in the ranking options (with js)
+filter_social_sciences &lt;- function() {
+  
+  # Click the filter field
+  filter_subject &lt;- driver$findElement(using = &quot;xpath&quot;, value = &#39;/html/body/div/div/div/div[2]/div[2]/div/div[2]/div[2]/div[2]/div[1]/div[1]/div[2]/div/div[1]/img&#39;)
+  filter_subject$clickElement()
+
+  
+  partial_inner_html &lt;- &quot;Social Sciences&quot;
+
+  # Construct an XPath that searches for an element containing the specified inner HTML
+  xpath_expression &lt;- sprintf(&#39;//*/text()[contains(., &quot;%s&quot;)]/parent::*&#39;, partial_inner_html)
+
+  # Find the element using the constructed XPath
+  social_sciences_element &lt;- driver$findElement(using = &quot;xpath&quot;, value = xpath_expression)
+
+  # Click on the found element
+  social_sciences_element$clickElement()
+  
+}
+
+#filter_social_sciences()
+social_science_ranks &lt;- data.frame(Institution = character(),
+                          Subject = character(),
+                          Number = character(),
+                          stringsAsFactors = FALSE)
+
+extract_social_science_rank &lt;- function(institution_name, existing_table) {
+  
+  # entire table with ranks
+  rank_table &lt;- driver$findElement(using = &quot;xpath&quot;, value = &#39;/html/body/div/div/div/div[2]/div[2]/div/div[2]/div[2]/div[2]/div[1]/div[2]/table/tbody&#39;)$getElementText()[[1]]
+  
+  # Split the data into subjects and numbers
+  split_data &lt;- unlist(strsplit(rank_table, &quot;\n&quot;))
+
+  # Add the scraped data to the existing table
+  existing_table &lt;- rbind(existing_table,
+                          data.frame(Institution = rep(institution_name, length(split_data) / 2),
+                                     Subject = split_data[seq(1, length(split_data), by = 2)],
+                                     Number = split_data[seq(2, length(split_data), by = 2)],
+                                     stringsAsFactors = FALSE))
+  
+  return(existing_table)
+}
+
+#social_science_ranks &lt;- extract_social_science_rank(&quot;Princeton University&quot;, social_science_ranks)
+#social_science_ranks &lt;- extract_social_science_rank(&quot;University of Pennsylvania&quot;, social_science_ranks)
+
+
+# Potentially need another code here depending on where we end up when we run the entire markdown
+
+navigate_universities()
+Sys.sleep(2)  
+
+# University of Pennsylvania
+# Search for the university
+search_general_ranking(&quot;University of Pennsylvania&quot;)
+  
+# Add a delay to allow the page to load before the next search
+Sys.sleep(2)  
+  
+# Filter for the social sciences
+filter_social_sciences()
+
+# Extract the social science ranks
+social_science_ranks &lt;- extract_social_science_rank(&quot;University of Pennsylvania&quot;, social_science_ranks) 
+Sys.sleep(2)  
+
+# Navigate back to all universities
+navigate_universities()
+Sys.sleep(2) 
+
+
+# Brown University
+# Search for the university
+search_general_ranking(&quot;Brown University&quot;)
+  
+# Add a delay to allow the page to load before the next search
+Sys.sleep(2)  
+  
+# Filter for the social sciences
+filter_social_sciences()
+
+# Extract the social science ranks
+social_science_ranks &lt;- extract_social_science_rank(&quot;Brown University&quot;, social_science_ranks) 
+Sys.sleep(2)  
+
+# Navigate back to all universities
+navigate_universities()
+Sys.sleep(2) 
+
+
+# Columbia University
+search_general_ranking(&quot;Columbia University&quot;)
+  
+# Add a delay to allow the page to load before the next search
+Sys.sleep(2)  
+  
+# Filter for the social sciences
+filter_social_sciences()
+
+# Extract the social science ranks
+social_science_ranks &lt;- extract_social_science_rank(&quot;Columbia University&quot;, social_science_ranks) 
+Sys.sleep(2)  
+
+# Navigate back to all universities
+navigate_universities()
+Sys.sleep(2) 
+
+
+
+# Cornell University
+search_general_ranking(&quot;Cornell University&quot;)
+  
+# Add a delay to allow the page to load before the next search
+Sys.sleep(2)  
+  
+# Filter for the social sciences
+filter_social_sciences()
+
+# Extract the social science ranks
+social_science_ranks &lt;- extract_social_science_rank(&quot;Cornell University&quot;, social_science_ranks) 
+Sys.sleep(2)  
+
+# Navigate back to all universities
+navigate_universities()
+Sys.sleep(2) 
+
+
+
+# Dartmouth College
+search_general_ranking(&quot;Dartmouth College&quot;)
+  
+# Add a delay to allow the page to load before the next search
+Sys.sleep(2)  
+  
+# Filter for the social sciences
+filter_social_sciences()
+
+# Extract the social science ranks
+social_science_ranks &lt;- extract_social_science_rank(&quot;Dartmouth College&quot;, social_science_ranks) 
+Sys.sleep(2)  
+
+# Navigate back to all universities
+navigate_universities()
+Sys.sleep(2)
+
+
+
+# Harvard University
+search_general_ranking(&quot;Harvard University&quot;)
+  
+# Add a delay to allow the page to load before the next search
+Sys.sleep(2)  
+  
+# Filter for the social sciences
+filter_social_sciences()
+
+# Extract the social science ranks
+social_science_ranks &lt;- extract_social_science_rank(&quot;Harvard University&quot;, social_science_ranks) 
+Sys.sleep(2)  
+
+# Navigate back to all universities
+navigate_universities()
+Sys.sleep(2)
+
+
+
+#   Princeton University
+search_general_ranking(&quot;Princeton University&quot;)
+  
+# Add a delay to allow the page to load before the next search
+Sys.sleep(2)  
+  
+# Filter for the social sciences
+filter_social_sciences()
+
+# Extract the social science ranks
+social_science_ranks &lt;- extract_social_science_rank(&quot;Princeton University&quot;, social_science_ranks) 
+Sys.sleep(2)  
+
+# Navigate back to all universities
+navigate_universities()
+Sys.sleep(2)
+
+
+
+#   Yale University
+search_general_ranking(&quot;Yale University&quot;)
+  
+# Add a delay to allow the page to load before the next search
+Sys.sleep(2)  
+  
+# Filter for the social sciences
+filter_social_sciences()
+
+# Extract the social science ranks
+social_science_ranks &lt;- extract_social_science_rank(&quot;Yale University&quot;, social_science_ranks) 
+Sys.sleep(2)  
+
+# Navigate back to all universities
+navigate_universities()
+Sys.sleep(2)
+
+
+
+
+
+
+
+
+
+######################################################################
+## Potentially: with a loop?
+# Loop through all ivy league universities in the ivyleagues dataset and call the search_for function for each university
+
+#navigate_universities()
+#Sys.sleep(2) 
+
+#for (i in seq_along(ivyleagues$full_name)) {
+  # Search for the university
+#  search_general_ranking(ivyleagues$full_name[i])
+  
+  # Add a delay to allow the page to load before the next search
+#  Sys.sleep(2)  
+  
+  # Filter for the social sciences
+#  filter_social_sciences()
+  
+  # Extract the social science ranks
+#  social_science_ranks &lt;- extract_social_science_rank(ivyleagues$full_name[i], social_science_ranks) 
+#  Sys.sleep(2)  
+
+  # Navigate back to all universities
+#  navigate_universities()
+#  Sys.sleep(2)  
+#}
+
+
+social_science_ranks$Number &lt;- sapply(social_science_ranks$Number, calculate_midpoint)
+
+# Adding the table to the relational database
+# Only include overwrite = TRUE for practicing purpose
+dbWriteTable(db, &quot;social_science_ranks&quot;, social_science_ranks, overwrite = TRUE)
+
+# Testing that it worked with a simple query
+dbGetQuery(db, &quot;SELECT * FROM social_science_ranks LIMIT 20&quot;)
+
+check_table(db, &quot;social_science_ranks&quot;)
+
+# Navigate to the home page to make it easier to keep working on this website
+home_page &lt;- driver$findElement(using = &quot;xpath&quot;, value = &#39;/html/body/div/div/div/div[1]/div[1]/div/div[2]/ul/li[1]/a&#39;)
+  
+# Click on the element
+home_page$clickElement()
 # close the RSelenium processes:
 driver$close()
-rD$server$stop()
-
 # close the associated Java processes (if using Mac or Linux this may not be necessary -- Google for correct command)
 system(&quot;taskkill /im java.exe /f&quot;, intern=FALSE, ignore.stdout=FALSE)
 # Close the database connection
@@ -1649,11 +1895,8 @@ dbDisconnect(db)</code></pre>
 <div class="footnotes footnotes-end-of-document">
 <hr />
 <ol>
-<li id="fn1"><p>We are only narrowing our focus so that we do not do too
-much scraping for no real research purpose, not because the Ivy League
-is particularly important or interesting.<a href="#fnref1" class="footnote-back">↩︎</a></p></li>
-<li id="fn2"><p>Are university rankings really meaningful? Probably not,
-but we will explore them for this exercise anyway.<a href="#fnref2" class="footnote-back">↩︎</a></p></li>
+<li id="fn1"><p>Are university rankings really meaningful? Probably not,
+but we will explore them for this exercise anyway.<a href="#fnref1" class="footnote-back">↩︎</a></p></li>
 </ol>
 </div>
 

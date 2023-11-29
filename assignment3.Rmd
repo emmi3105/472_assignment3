@@ -490,11 +490,13 @@ Your final table should be in tidy long format, where each row uniquely identifi
 
 #### Launch the browser
 
-```{r launch the browser, echo=FALSE}
+```{r launch the browser, results='hide', message=FALSE}
 
 # Launch the driver and browser
-rD <- rsDriver(browser=c("firefox"), port = free_port(random = TRUE), chromever = NULL) 
-driver <- rD$client
+invisible(capture.output({
+  rD <- rsDriver(browser=c("firefox"), port = free_port(random = TRUE), chromever = NULL) 
+  driver <- rD$client
+}))
 ```
 
 #### Navigate to the shanghai ranking website
@@ -688,9 +690,9 @@ for (i in seq_along(ivyleagues_03$Institution)) {
 
 ```{r print the tables}
 
-print(ivyleagues_23)
-print(ivyleagues_03)
-print(ivyleagues_13)
+#print(ivyleagues_23)
+#print(ivyleagues_03)
+#print(ivyleagues_13)
 ```
 
 
@@ -700,14 +702,16 @@ print(ivyleagues_13)
 
 ```{r merge the institution columns with the year columns}
 
-ivyleagues_03$Institution <- paste(ivyleagues_03$Institution, ivyleagues_03$Year, sep = "-")
-ivyleagues_03$Year <- NULL
 
-ivyleagues_13$Institution <- paste(ivyleagues_13$Institution, ivyleagues_13$Year, sep = "-")
-ivyleagues_13$Year <- NULL
+# We actually do not want this -> does not make sense with regard to relational database
+#ivyleagues_03$Institution <- paste(ivyleagues_03$Institution, ivyleagues_03$Year, sep = "-")
+#ivyleagues_03$Year <- NULL
 
-ivyleagues_23$Institution <- paste(ivyleagues_23$Institution, ivyleagues_23$Year, sep = "-")
-ivyleagues_23$Year <- NULL
+#ivyleagues_13$Institution <- paste(ivyleagues_13$Institution, ivyleagues_13$Year, sep = "-")
+#ivyleagues_13$Year <- NULL
+
+#ivyleagues_23$Institution <- paste(ivyleagues_23$Institution, ivyleagues_23$Year, sep = "-")
+#ivyleagues_23$Year <- NULL
 
 
 # Merge all three data sets
@@ -746,6 +750,16 @@ dbGetQuery(db, "SELECT * FROM ivyleagues_ranks LIMIT 8")
 ```{r}
 check_table(db, "ivyleagues_ranks")
 ```
+#### Navigate back to the home page
+
+```{r navigate to the home page}
+
+# Navigate to the home page to make it easier to keep working on this website
+home_page <- driver$findElement(using = "xpath", value = '/html/body/div/div/div/div[1]/div[1]/div/div[2]/ul/li[1]/a')
+  
+# Click on the element
+home_page$clickElement()
+```
 
 
 ### b. Scraping subject ranks for 2023
@@ -759,11 +773,364 @@ Your final table should be in tidy long format, where each row uniquely identifi
 
 
 
+#### Preparation for the scraping
+
+0. Navigate to page with the data on the university ranking by subject
+
+```{r function that navigates to the subject rankings}
+
+# A function that navigates to the page with the subject rankings
+navigate_universities <- function() {
+  universities_ranks <- driver$findElement(using = "xpath", value = '/html/body/div/div/div/div[1]/div[1]/div/div[2]/ul/li[3]')
+  universities_ranks$clickElement()
+}
+
+navigate_universities()
+```
+
+
+1. Function that searches for each ivy league university in the dataframe and selects the first result
+
+```{r function that searches for the ivys in the general ranking and sekects it}
+
+# A function that searches for each ivy league university 
+search_general_ranking <- function(term) {
+  
+  # Find the search field, clear it, and enter the new search term, e.g. "Harvard University"
+  search_field <- driver$findElement(using = "xpath", value = '/html/body/div/div/div/div[2]/div[1]/div/div/div/input')
+  search_field$clearElement()
+  search_field$sendKeysToElement(list(term))
+  
+  # Wait for one second and then press the enter key
+  Sys.sleep(2)
+  search_field$sendKeysToElement(list(key = "enter"))
+  
+  # Select the first element
+  Sys.sleep(2)
+  first_result <- driver$findElement(using = "xpath", value = '/html/body/div/div/div/div[2]/div[2]/div[1]/div[2]') 
+  first_result$clickElement()
+
+}
+
+# Test
+#navigate_universities() 
+#Sys.sleep(2)
+#search_general_ranking("University of Pennsylvania")
+#navigate_universities() 
+#Sys.sleep(2)
+#search_general_ranking("Yale University")
+#navigate_universities() 
+#Sys.sleep(2)
+#search_general_ranking("Princeton University")
+
+```
+
+
+2. Function that filters for the social sciences
+```{r filter for social sciences}
+
+# A function that filters for the social sciences in the ranking options (with js)
+filter_social_sciences <- function() {
+  
+  # Click the filter field
+  filter_subject <- driver$findElement(using = "xpath", value = '/html/body/div/div/div/div[2]/div[2]/div/div[2]/div[2]/div[2]/div[1]/div[1]/div[2]/div/div[1]/img')
+  filter_subject$clickElement()
+
+  
+  partial_inner_html <- "Social Sciences"
+
+  # Construct an XPath that searches for an element containing the specified inner HTML
+  xpath_expression <- sprintf('//*/text()[contains(., "%s")]/parent::*', partial_inner_html)
+
+  # Find the element using the constructed XPath
+  social_sciences_element <- driver$findElement(using = "xpath", value = xpath_expression)
+
+  # Click on the found element
+  social_sciences_element$clickElement()
+  
+}
+
+#filter_social_sciences()
+```
+
+3. Scrape the ranks
+
+```{r}
+social_science_ranks <- data.frame(Institution = character(),
+                          Subject = character(),
+                          Number = character(),
+                          stringsAsFactors = FALSE)
+
+extract_social_science_rank <- function(institution_name, existing_table) {
+  
+  # entire table with ranks
+  rank_table <- driver$findElement(using = "xpath", value = '/html/body/div/div/div/div[2]/div[2]/div/div[2]/div[2]/div[2]/div[1]/div[2]/table/tbody')$getElementText()[[1]]
+  
+  # Split the data into subjects and numbers
+  split_data <- unlist(strsplit(rank_table, "\n"))
+
+  # Add the scraped data to the existing table
+  existing_table <- rbind(existing_table,
+                          data.frame(Institution = rep(institution_name, length(split_data) / 2),
+                                     Subject = split_data[seq(1, length(split_data), by = 2)],
+                                     Number = split_data[seq(2, length(split_data), by = 2)],
+                                     stringsAsFactors = FALSE))
+  
+  return(existing_table)
+}
+
+#social_science_ranks <- extract_social_science_rank("Princeton University", social_science_ranks)
+#social_science_ranks <- extract_social_science_rank("University of Pennsylvania", social_science_ranks)
+
+```
+
+
+#### Scrape
+
+```{r scrape social science rankings}
+
+# Potentially need another code here depending on where we end up when we run the entire markdown
+
+navigate_universities()
+Sys.sleep(2)  
+
+# University of Pennsylvania
+# Search for the university
+search_general_ranking("University of Pennsylvania")
+  
+# Add a delay to allow the page to load before the next search
+Sys.sleep(2)  
+  
+# Filter for the social sciences
+filter_social_sciences()
+
+# Extract the social science ranks
+social_science_ranks <- extract_social_science_rank("University of Pennsylvania", social_science_ranks) 
+Sys.sleep(2)  
+
+# Navigate back to all universities
+navigate_universities()
+Sys.sleep(2) 
+
+
+# Brown University
+# Search for the university
+search_general_ranking("Brown University")
+  
+# Add a delay to allow the page to load before the next search
+Sys.sleep(2)  
+  
+# Filter for the social sciences
+filter_social_sciences()
+
+# Extract the social science ranks
+social_science_ranks <- extract_social_science_rank("Brown University", social_science_ranks) 
+Sys.sleep(2)  
+
+# Navigate back to all universities
+navigate_universities()
+Sys.sleep(2) 
+
+
+# Columbia University
+search_general_ranking("Columbia University")
+  
+# Add a delay to allow the page to load before the next search
+Sys.sleep(2)  
+  
+# Filter for the social sciences
+filter_social_sciences()
+
+# Extract the social science ranks
+social_science_ranks <- extract_social_science_rank("Columbia University", social_science_ranks) 
+Sys.sleep(2)  
+
+# Navigate back to all universities
+navigate_universities()
+Sys.sleep(2) 
+
+
+
+# Cornell University
+search_general_ranking("Cornell University")
+  
+# Add a delay to allow the page to load before the next search
+Sys.sleep(2)  
+  
+# Filter for the social sciences
+filter_social_sciences()
+
+# Extract the social science ranks
+social_science_ranks <- extract_social_science_rank("Cornell University", social_science_ranks) 
+Sys.sleep(2)  
+
+# Navigate back to all universities
+navigate_universities()
+Sys.sleep(2) 
+
+
+
+# Dartmouth College
+search_general_ranking("Dartmouth College")
+  
+# Add a delay to allow the page to load before the next search
+Sys.sleep(2)  
+  
+# Filter for the social sciences
+filter_social_sciences()
+
+# Extract the social science ranks
+social_science_ranks <- extract_social_science_rank("Dartmouth College", social_science_ranks) 
+Sys.sleep(2)  
+
+# Navigate back to all universities
+navigate_universities()
+Sys.sleep(2)
+
+
+
+# Harvard University
+search_general_ranking("Harvard University")
+  
+# Add a delay to allow the page to load before the next search
+Sys.sleep(2)  
+  
+# Filter for the social sciences
+filter_social_sciences()
+
+# Extract the social science ranks
+social_science_ranks <- extract_social_science_rank("Harvard University", social_science_ranks) 
+Sys.sleep(2)  
+
+# Navigate back to all universities
+navigate_universities()
+Sys.sleep(2)
+
+
+
+#	Princeton University
+search_general_ranking("Princeton University")
+  
+# Add a delay to allow the page to load before the next search
+Sys.sleep(2)  
+  
+# Filter for the social sciences
+filter_social_sciences()
+
+# Extract the social science ranks
+social_science_ranks <- extract_social_science_rank("Princeton University", social_science_ranks) 
+Sys.sleep(2)  
+
+# Navigate back to all universities
+navigate_universities()
+Sys.sleep(2)
+
+
+
+#	Yale University
+search_general_ranking("Yale University")
+  
+# Add a delay to allow the page to load before the next search
+Sys.sleep(2)  
+  
+# Filter for the social sciences
+filter_social_sciences()
+
+# Extract the social science ranks
+social_science_ranks <- extract_social_science_rank("Yale University", social_science_ranks) 
+Sys.sleep(2)  
+
+# Navigate back to all universities
+navigate_universities()
+Sys.sleep(2)
+
+
+
+
+
+
+
+
+
+######################################################################
+## Potentially: with a loop?
+# Loop through all ivy league universities in the ivyleagues dataset and call the search_for function for each university
+
+#navigate_universities()
+#Sys.sleep(2) 
+
+#for (i in seq_along(ivyleagues$full_name)) {
+  # Search for the university
+#  search_general_ranking(ivyleagues$full_name[i])
+  
+  # Add a delay to allow the page to load before the next search
+#  Sys.sleep(2)  
+  
+  # Filter for the social sciences
+#  filter_social_sciences()
+  
+  # Extract the social science ranks
+#  social_science_ranks <- extract_social_science_rank(ivyleagues$full_name[i], social_science_ranks) 
+#  Sys.sleep(2)  
+
+  # Navigate back to all universities
+#  navigate_universities()
+#  Sys.sleep(2)  
+#}
+
+
+```
+
+
+
+#### Calculate the midpoint for the rank
+
+```{r}
+social_science_ranks$Number <- sapply(social_science_ranks$Number, calculate_midpoint)
+```
+
+
+#### Write the table to the database
+
+```{r write the social_science_ranks table to the relational database}
+
+# Adding the table to the relational database
+# Only include overwrite = TRUE for practicing purpose
+dbWriteTable(db, "social_science_ranks", social_science_ranks, overwrite = TRUE)
+
+# Testing that it worked with a simple query
+dbGetQuery(db, "SELECT * FROM social_science_ranks LIMIT 20")
+
+```
+
+#### Check the existence of the table
+
+```{r}
+check_table(db, "social_science_ranks")
+```
+
+#### Navigate back to the homepage
+
+```{r navigate to home page}
+
+# Navigate to the home page to make it easier to keep working on this website
+home_page <- driver$findElement(using = "xpath", value = '/html/body/div/div/div/div[1]/div[1]/div/div[2]/ul/li[1]/a')
+  
+# Click on the element
+home_page$clickElement()
+```
+
+
+
+
+
+
+
+
+
 
 
 ## Close the stuff again
-
-
 
 
 Finally, let us close the driver and browser window before closing R:
@@ -771,8 +1138,6 @@ Finally, let us close the driver and browser window before closing R:
 ```{r}
 # close the RSelenium processes:
 driver$close()
-rD$server$stop()
-
 # close the associated Java processes (if using Mac or Linux this may not be necessary -- Google for correct command)
 system("taskkill /im java.exe /f", intern=FALSE, ignore.stdout=FALSE)
 ```
