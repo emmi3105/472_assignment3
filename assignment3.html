@@ -914,8 +914,8 @@ the <a href="https://www.shanghairanking.com/">Academic Ranking of World
 Universities</a>.<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a></p>
 <div id="a.-scraping-annual-rank" class="section level3">
 <h3>a. Scraping annual rank</h3>
-<p>Create a webscraper that returns, for the <strong>Ivy League
-university only</strong>:</p>
+<p><strong>Task</strong> Create a webscraper that returns, for the
+<strong>Ivy League university only</strong>:</p>
 <ol style="list-style-type: lower-roman">
 <li>The ARWU ranking for the university for the years 2003, 2013, and
 2023. If the university’s rank is given as a range e.g. 76-100, convert
@@ -964,6 +964,19 @@ can be seen.</p>
 <div id="extract-the-rank" class="section level4">
 <h4>Extract the rank</h4>
 </div>
+<div id="call-the-global-rank-scraping-function" class="section level4">
+<h4>Call the global rank scraping function</h4>
+<p>Now, we will call the function “scrape_university_ranking_global() to
+scrape the global ranking for the years 2003, 2013, and 2023. The
+function returns a dataframe, which we will assign to the
+name”ivyleagues_ranks”.</p>
+<pre class="r"><code># Call the global rank scraping function
+ivyleagues_ranks &lt;- scrape_university_ranking_global()</code></pre>
+<p>Before adding the table to the universities_db database, we need to
+calculate the midpoint for the observations that reported a range for
+the rank instead of a single number. The “calculate_midpoint()” function
+can be found in the appendix.</p>
+</div>
 <div id="write-it-to-the-database" class="section level4">
 <h4>Write it to the database</h4>
 <pre><code>##                  Institution Year  Rank
@@ -978,6 +991,9 @@ can be seen.</p>
 </div>
 <div id="check-the-existence-of-the-table" class="section level4">
 <h4>Check the existence of the table</h4>
+<p>Now, we can check the existence of the “ivyleagues_ranks” table by
+executing the check_table() function. It should return a table of 24
+rows and 3 columns, namely “Institution”, “Year”, and “Rank”.</p>
 <pre><code>## The table exists and has the following dimensions: 
 ## Number of rows: 24 
 ## Number of columns: 3 
@@ -985,12 +1001,15 @@ can be seen.</p>
 </div>
 <div id="navigate-back-to-the-home-page" class="section level4">
 <h4>Navigate back to the home page</h4>
+<p>Before going over to the next exercise, we will navigate back to the
+home page of the website to prevent errors while scraping information
+from a different place within the website.</p>
 </div>
 </div>
 <div id="b.-scraping-subject-ranks-for-2023" class="section level3">
 <h3>b. Scraping subject ranks for 2023</h3>
-<p>Extend your webscraper (or create a new one) that gathers for each
-<strong>Ivy League university only</strong>:</p>
+<p><strong>Task</strong> Extend your webscraper (or create a new one)
+that gathers for each <strong>Ivy League university only</strong>:</p>
 <ol style="list-style-type: lower-roman">
 <li>The rankings of the university for <strong>every social
 science</strong> for which the university has been ranked. Again, if a
@@ -1005,47 +1024,67 @@ wrote in Exercise 2.d. Include only the call to the function and the
 output in the main section of your <code>.html</code> file.</p>
 <div id="preparation-for-the-scraping-1" class="section level4">
 <h4>Preparation for the scraping</h4>
-<ol start="0" style="list-style-type: decimal">
-<li><p>Navigate to page with the data on the university ranking by
-subject</p></li>
-<li><p>Function that searches for each ivy league university in the
-dataframe and selects the first result</p></li>
-<li><p>Function that filters for the social sciences</p></li>
-<li><p>Scrape the ranks</p></li>
-</ol>
+<p>Before scraping the rankings for different social sciences for the
+ivyleague universities, we need to create a few functions.</p>
+<div id="navigate-to-page-with-the-data-on-the-university-ranking-by-subject" class="section level5">
+<h5>0. Navigate to page with the data on the university ranking by
+subject</h5>
+<p>Firstly, we need to navigate to the place on the website where the
+subject-specific rankings for each university are found. The data we are
+interested can be found under “Universities” in the navigation bar on
+top of the home page of the shanghai ranking website. After navigating,
+we will create the functions needed for the scraping.</p>
 </div>
-<div id="scrape" class="section level4">
-<h4>Scrape</h4>
+<div id="search-ivyleagues-and-navigate-to-individual-page" class="section level5">
+<h5>1. Search ivyleagues and navigate to individual page</h5>
+<p>Firstly, we will create a function that searches for each individual
+university and navigates to the university specific website on which the
+university’s rankings for each subject are published. The function
+“search_general_ranking()” takes the university’s name as the input
+argument and navigates to its website. It does not create or return any
+data objects.</p>
 </div>
-<div id="calculate-the-midpoint-for-the-rank" class="section level4">
-<h4>Calculate the midpoint for the rank</h4>
+<div id="filter-for-the-social-sciences" class="section level5">
+<h5>2. Filter for the social sciences</h5>
+<p>Secondly, we need a function that filters the rankings published on
+the individual university page for social sciences only. The function
+“filter_social_sciences()” neither takes any input arguments nor creates
+or returns any data objects. It simply opens up the drop down menu
+holding the filter options and selects “Social Sciences”.</p>
+</div>
+<div id="extract-the-social-science-ranks" class="section level5">
+<h5>3. Extract the social science ranks</h5>
+<p>Lastly, we need a function that extracts the ranks of all social
+sciences for the individual universities. Before defining the function,
+we create an empty table “social_science_ranks” that has three columns:
+“Institution”, “Subject”, and “Number”. The function
+“extract_social_science_rank” takes the university name and the
+“social_science_ranks” table as an input arguments and appends the
+scraped ranks to the table. It returns the social_science_ranks table
+including the scraped data for the university that was the input
+argument. Note that when executing the function several times, it will
+continue to append the new data to the same table instead of overwriting
+previously extracted data.</p>
+</div>
+</div>
+<div id="scrape-the-social-science-rankings" class="section level4">
+<h4>Scrape the social science rankings</h4>
+<p>Now, we can use the previously defined functions to scrape the social
+science rankings for all ivyleagues.</p>
+</div>
+<div id="calculate-the-midpoint" class="section level4">
+<h4>Calculate the midpoint</h4>
+<p>Using the “calculate_midpoint()” function, we get the midpoint for
+the observations that reported a range for a specific ranking.</p>
 </div>
 <div id="write-the-table-to-the-database" class="section level4">
 <h4>Write the table to the database</h4>
-<pre><code>##                   Institution                       Subject Number
-## 1  University of Pennsylvania                     Economics   14.0
-## 2  University of Pennsylvania                    Statistics    3.0
-## 3  University of Pennsylvania                           Law    3.0
-## 4  University of Pennsylvania            Political Sciences   10.0
-## 5  University of Pennsylvania                     Sociology   22.0
-## 6  University of Pennsylvania                     Education   10.0
-## 7  University of Pennsylvania                 Communication   13.0
-## 8  University of Pennsylvania                    Psychology    6.0
-## 9  University of Pennsylvania       Business Administration   63.0
-## 10 University of Pennsylvania                       Finance    2.0
-## 11 University of Pennsylvania                    Management    4.0
-## 12 University of Pennsylvania         Public Administration  175.5
-## 13 University of Pennsylvania Library &amp; Information Science   24.0
-## 14           Brown University                     Economics   46.0
-## 15           Brown University                    Statistics   88.0
-## 16           Brown University                           Law   88.0
-## 17           Brown University            Political Sciences   63.0
-## 18           Brown University                     Sociology   32.0
-## 19           Brown University                     Education   63.0
-## 20           Brown University                    Psychology   63.0</code></pre>
-</div>
-<div id="check-the-existence-of-the-table-1" class="section level4">
-<h4>Check the existence of the table</h4>
+<p>Finally, we can write the table to our relational database.</p>
+<p>We can test whether the scraping worked properly by using the
+“check_table()” function. It should return a table of 86 rows and 3
+columns, namely “Institution”, “Subject”, and “Number”.</p>
+<pre class="r"><code># Check the existence of the social_science_ranks table
+check_table(db, &quot;social_science_ranks&quot;)</code></pre>
 <pre><code>## The table exists and has the following dimensions: 
 ## Number of rows: 86 
 ## Number of columns: 3 
@@ -1053,6 +1092,8 @@ dataframe and selects the first result</p></li>
 </div>
 <div id="navigate-back-to-the-homepage" class="section level4">
 <h4>Navigate back to the homepage</h4>
+<p>Lastly, we navigate back to the homepage.</p>
+<p>QUESTION: maybe we can already close the driver here no?</p>
 </div>
 </div>
 </div>
@@ -1465,115 +1506,106 @@ print(ivyleagues_03)
 
 # Scrape the rank for each ivy league university from the website for the years 2003, 2013, 2023
 
+scrape_university_ranking_global &lt;- function() {
+  ##########
+  ## 2023 ##
+  ##########
 
-##########
-## 2023 ##
-##########
+  # Navigate to 2023
+  navigate_year()
 
-# Navigate to 2023
-navigate_year()
+  academic_ranking_23 &lt;- driver$findElement(using = &quot;xpath&quot;, value = &#39;/html/body/div/div/div/div[2]/div/div[1]/div[2]/div[2]/div/div[1]/div/div[2]/ul/li[1]&#39;)
+  academic_ranking_23$clickElement()
 
-academic_ranking_23 &lt;- driver$findElement(using = &quot;xpath&quot;, value = &#39;/html/body/div/div/div/div[2]/div/div[1]/div[2]/div[2]/div/div[1]/div/div[2]/ul/li[1]&#39;)
-academic_ranking_23$clickElement()
+  # Loop through all ivy league universities in the ivyleagues dataset and call the search_for function for each university
+  for (i in seq_along(ivyleagues_23$Institution)) {
+  
+    # Search for the university
+    search_for(ivyleagues_23$Institution[i])
+  
+    # Add a delay to allow the page to load before the next search
+    Sys.sleep(2)  
+  
+    # Extract the rank from the webpage and assign it to the Rank column
+    ivyleagues_23$Rank[i] &lt;- extract_rank()
+  
+    # Assign the year 2023 to the Year column
+    #ivyleagues_23$Year[i] &lt;- extract_year()
+    ivyleagues_23$Year[i] &lt;- &quot;2023&quot;
 
-# Loop through all ivy league universities in the ivyleagues dataset and call the search_for function for each university
-for (i in seq_along(ivyleagues_23$Institution)) {
+  }
+
+  ##########
+  ## 2013 ##
+  ##########
+
+  # Navigate to 2013
+  navigate_year()
+
+  academic_ranking_13 &lt;- driver$findElement(using = &quot;xpath&quot;, value = &#39;/html/body/div/div/div/div[2]/div/div[1]/div[2]/div[2]/div/div[1]/div/div[2]/ul/li[11]&#39;)
+  academic_ranking_13$clickElement()
+
+  for (i in seq_along(ivyleagues_13$Institution)) {
   
-  # Search for the university
-  search_for(ivyleagues_23$Institution[i])
+    # Search for the university
+    search_for(ivyleagues_13$Institution[i])
   
-  # Add a delay to allow the page to load before the next search
-  Sys.sleep(2)  
+    # Add a delay to allow the page to load before the next search
+    Sys.sleep(2)  
   
-  # Extract the rank from the webpage and assign it to the Rank column
-  ivyleagues_23$Rank[i] &lt;- extract_rank()
+    # Extract the rank from the webpage and assign it to the Rank column
+    ivyleagues_13$Rank[i] &lt;- extract_rank()
   
-  # Assign the year 2023 to the Year column
-  #ivyleagues_23$Year[i] &lt;- extract_year()
-  ivyleagues_23$Year[i] &lt;- &quot;2023&quot;
+    # Assign the year 2013 to the Year column
+    ivyleagues_13$Year[i] &lt;- &quot;2013&quot;
+
+  }
+
+  ##########
+  ## 2003 ##
+  ##########
+
+  # Navigate to 2003
+  navigate_year()
+
+  academic_ranking_03 &lt;- driver$findElement(using = &quot;xpath&quot;, value = &#39;/html/body/div/div/div/div[2]/div/div[1]/div[2]/div[2]/div/div[1]/div/div[2]/ul/li[21]&#39;)
+  academic_ranking_03$clickElement()
+
+  for (i in seq_along(ivyleagues_03$Institution)) {
+  
+    # Search for the university
+    search_for(ivyleagues_03$Institution[i])
+  
+    # Add a delay to allow the page to load before the next search
+    Sys.sleep(2)  
+  
+    # Extract the rank from the webpage and assign it to the Rank column
+    ivyleagues_03$Rank[i] &lt;- extract_rank()
+  
+    # Assign the year 2003 to the Year column
+    ivyleagues_03$Year[i] &lt;- &quot;2003&quot;
+
+  }
+  
+  # Creating a list of data frames
+  ivyleagues_ranks &lt;- rbind(ivyleagues_03, ivyleagues_13, ivyleagues_23)
+
+  return(ivyleagues_ranks)
 
 }
 
-##########
-## 2013 ##
-##########
 
-# Navigate to 2013
-navigate_year()
-
-academic_ranking_13 &lt;- driver$findElement(using = &quot;xpath&quot;, value = &#39;/html/body/div/div/div/div[2]/div/div[1]/div[2]/div[2]/div/div[1]/div/div[2]/ul/li[11]&#39;)
-academic_ranking_13$clickElement()
-
-for (i in seq_along(ivyleagues_13$Institution)) {
-  
-  # Search for the university
-  search_for(ivyleagues_13$Institution[i])
-  
-  # Add a delay to allow the page to load before the next search
-  Sys.sleep(2)  
-  
-  # Extract the rank from the webpage and assign it to the Rank column
-  ivyleagues_13$Rank[i] &lt;- extract_rank()
-  
-  # Assign the year 2013 to the Year column
-  ivyleagues_13$Year[i] &lt;- &quot;2013&quot;
-
-}
-
-##########
-## 2003 ##
-##########
-
-# Navigate to 2003
-navigate_year()
-
-academic_ranking_03 &lt;- driver$findElement(using = &quot;xpath&quot;, value = &#39;/html/body/div/div/div/div[2]/div/div[1]/div[2]/div[2]/div/div[1]/div/div[2]/ul/li[21]&#39;)
-academic_ranking_03$clickElement()
-
-for (i in seq_along(ivyleagues_03$Institution)) {
-  
-  # Search for the university
-  search_for(ivyleagues_03$Institution[i])
-  
-  # Add a delay to allow the page to load before the next search
-  Sys.sleep(2)  
-  
-  # Extract the rank from the webpage and assign it to the Rank column
-  ivyleagues_03$Rank[i] &lt;- extract_rank()
-  
-  # Assign the year 2003 to the Year column
-  ivyleagues_03$Year[i] &lt;- &quot;2003&quot;
-
-}
-
-#print(ivyleagues_23)
-#print(ivyleagues_03)
-#print(ivyleagues_13)
-
-
-# We actually do not want this -&gt; does not make sense with regard to relational database
-#ivyleagues_03$Institution &lt;- paste(ivyleagues_03$Institution, ivyleagues_03$Year, sep = &quot;-&quot;)
-#ivyleagues_03$Year &lt;- NULL
-
-#ivyleagues_13$Institution &lt;- paste(ivyleagues_13$Institution, ivyleagues_13$Year, sep = &quot;-&quot;)
-#ivyleagues_13$Year &lt;- NULL
-
-#ivyleagues_23$Institution &lt;- paste(ivyleagues_23$Institution, ivyleagues_23$Year, sep = &quot;-&quot;)
-#ivyleagues_23$Year &lt;- NULL
-
-
-# Merge all three data sets
-
-ivyleagues_ranks &lt;- rbind(ivyleagues_03, ivyleagues_13, ivyleagues_23)
+# Call the global rank scraping function
+ivyleagues_ranks &lt;- scrape_university_ranking_global()
 
 # Function to calculate midpoint from a range
-
 calculate_midpoint &lt;- function(rank) {
   for (i in seq_along(rank)) {
   range_midpoint &lt;- mean(as.numeric(strsplit(rank[i], &quot;-&quot;)[[1]])) 
   return(range_midpoint)}
 }
 
+# Calculate the midpoint
 ivyleagues_ranks$Rank &lt;- sapply(ivyleagues_ranks$Rank, calculate_midpoint)
 
 # Adding the table to the relational database
@@ -1583,12 +1615,13 @@ dbWriteTable(db, &quot;ivyleagues_ranks&quot;, ivyleagues_ranks, overwrite = TRU
 # Testing that it worked with a simple query
 dbGetQuery(db, &quot;SELECT * FROM ivyleagues_ranks LIMIT 8&quot;)
 
+
+# Check the existence of the ivyleagues_ranks table
 check_table(db, &quot;ivyleagues_ranks&quot;)
 
 # Navigate to the home page to make it easier to keep working on this website
 home_page &lt;- driver$findElement(using = &quot;xpath&quot;, value = &#39;/html/body/div/div/div/div[1]/div[1]/div/div[2]/ul/li[1]/a&#39;)
-  
-# Click on the element
+
 home_page$clickElement()
 
 # A function that navigates to the page with the subject rankings
@@ -1618,17 +1651,6 @@ search_general_ranking &lt;- function(term) {
 
 }
 
-# Test
-#navigate_universities() 
-#Sys.sleep(2)
-#search_general_ranking(&quot;University of Pennsylvania&quot;)
-#navigate_universities() 
-#Sys.sleep(2)
-#search_general_ranking(&quot;Yale University&quot;)
-#navigate_universities() 
-#Sys.sleep(2)
-#search_general_ranking(&quot;Princeton University&quot;)
-
 
 # A function that filters for the social sciences in the ranking options (with js)
 filter_social_sciences &lt;- function() {
@@ -1650,8 +1672,6 @@ filter_social_sciences &lt;- function() {
   social_sciences_element$clickElement()
   
 }
-
-#filter_social_sciences()
 social_science_ranks &lt;- data.frame(Institution = character(),
                           Subject = character(),
                           Number = character(),
@@ -1674,9 +1694,6 @@ extract_social_science_rank &lt;- function(institution_name, existing_table) {
   
   return(existing_table)
 }
-
-#social_science_ranks &lt;- extract_social_science_rank(&quot;Princeton University&quot;, social_science_ranks)
-#social_science_ranks &lt;- extract_social_science_rank(&quot;University of Pennsylvania&quot;, social_science_ranks)
 
 
 # Potentially need another code here depending on where we end up when we run the entire markdown
@@ -1850,6 +1867,7 @@ Sys.sleep(2)
 #Sys.sleep(2) 
 
 #for (i in seq_along(ivyleagues$full_name)) {
+  
   # Search for the university
 #  search_general_ranking(ivyleagues$full_name[i])
   
@@ -1869,6 +1887,8 @@ Sys.sleep(2)
 #}
 
 
+
+# Calculate the midpoint for the social science rankings that were displayed as a range
 social_science_ranks$Number &lt;- sapply(social_science_ranks$Number, calculate_midpoint)
 
 # Adding the table to the relational database
@@ -1876,8 +1896,10 @@ social_science_ranks$Number &lt;- sapply(social_science_ranks$Number, calculate_
 dbWriteTable(db, &quot;social_science_ranks&quot;, social_science_ranks, overwrite = TRUE)
 
 # Testing that it worked with a simple query
-dbGetQuery(db, &quot;SELECT * FROM social_science_ranks LIMIT 20&quot;)
+#dbGetQuery(db, &quot;SELECT * FROM social_science_ranks LIMIT 20&quot;)
 
+
+# Check the existence of the social_science_ranks table
 check_table(db, &quot;social_science_ranks&quot;)
 
 # Navigate to the home page to make it easier to keep working on this website

@@ -482,13 +482,16 @@ We are now going to use the `Rselenium` package to explore the [Academic Ranking
 
 ### a. Scraping annual rank
 
+**Task**
 Create a webscraper that returns, for the **Ivy League university only**:
 
 i. The ARWU ranking for the university for the years 2003, 2013, and 2023. If the university's rank is given as a range e.g. 76-100, convert this to the midpoint of the range -- in this case 88.
 
 Your final table should be in tidy long format, where each row uniquely identifies a combination of university and year (e.g., Harvard-2003). Write the data as a new table -- appropriately and clearly named -- to your relational database. Check for the existence and correct dimensionality of your written table using the function you wrote in Exercise 2.d. Include only the call to the function and the output in the main section of your `.html` file.
 
-#### Launch the browser
+#### Launch the browser and navigate to the website
+
+In a first step, we will launch the driver and the browser. Note that we use chromenever = NULL to avoid launching chrome as chrome browsers have shown to be buggy and we prefer using firefox instead.
 
 ```{r launch the browser, results='hide', message=FALSE}
 
@@ -499,7 +502,7 @@ invisible(capture.output({
 }))
 ```
 
-#### Navigate to the shanghai ranking website
+When the browser has been launched, we can navigate to the [Academic Ranking of World Universities Website](https://www.shanghairanking.com/) using the URL provided in the task.
 
 ```{r navigate to the website}
 
@@ -514,7 +517,11 @@ academic_ranking_23$clickElement()
 
 #### Preparation for the scraping
 
-1. Function that searches for each ivy league university in the dataframe
+Before we can scrape the data on the overall rankings of the ivyleague universities, we create a few functions that will be needed for the webscraper.
+
+##### 1. Function: Search for individual ivy league universities
+
+We create a function that searches for each individual university. The function "search_for()" takes the university's name as the input argument. It does not create or return any data objects but it simply filters out the university of interest.
 
 ```{r function that searches for the ivys}
 
@@ -534,9 +541,11 @@ search_for <- function(term) {
 ```
 
 
-2. Function that navigates to a different year
+##### 2. Function: Navigate to a different year
 
-```{r Create a function that navigates to a different year }
+By default, the Academic Ranking of World Universities Website displays the rankings for the year 2023. However, since we are interested in the overall ranking of the ivyleagues for three different years - namely 2003, 2013 and 2023 - we need a function that can navigate to a different year. "navigate_year()" neither takes any input arguments nor creates or displays any data objects. It simply finds the drop down menu displaying the different options for year filters and opens it up. Note that upon executing "navigate_year()" we need to further specify, which year should be selected.
+
+```{r create a function that navigates to a different year }
 
 # A function that navigates to a different year
 navigate_year <- function() {
@@ -550,7 +559,9 @@ navigate_year <- function() {
 
 
 
-3. Function that extracts the rank of the ivy leagues given what university we have searched for using search_for() and what year we are currently looking at after having used navigate_year().
+##### 3. Function: Extract the overall rank
+
+Finally, we need a function that actually extracts the rank displayed after searching for the university and year of interest. "extract_rank()" extracts and returns the value displayed in the column "World Rank" for the university of interest. 
 
 ```{r functions to extract the world rank and the year}
 
@@ -574,9 +585,9 @@ extract_year <- function() {
 ```
 
 
-4. Data frames for each year we are interested in
+##### 4. Create empty data frames
 
-We will temporarily create three data frame that hold the names of the ivy leagues in their first column. Furthermore, these dataframes have an empty column for the rank and another empty column that will later hold the year. Before scraping the data from the website, the three dataframes look identical. Below, the dataframe for the year 2003 can be seen.
+Before putting everything together in one scraping function, we will temporarily create three data frame - one for each year of interest - that hold the names of the ivy leagues in their first column. Furthermore, these dataframes have an empty column for the rank and another empty column that will later hold the year. Before scraping the data from the website, the three dataframes look identical. When executing the webscraper, the university names and the respective ranking values will be appended to the dataframe corresponding to the same year. Once the scraper has extracted all of the information we are interested in, we will merge the three dataframes and return the final table.
 
 ```{r create a dataframe with ivy leagues}
 
@@ -590,147 +601,144 @@ ivyleagues_df <- data.frame(
   stringsAsFactors = FALSE
 )
 
-# Create three copies of the ivyleagues_df data frame for each of the three years that we will later scrape ranking data fro
+# Create three copies of the ivyleagues_df data frame for each of the three years that we will later scrape ranking data from
 ivyleagues_03 <- ivyleagues_df
 ivyleagues_13 <- ivyleagues_df
 ivyleagues_23 <- ivyleagues_df
-
-# Display the ivy league dataframes for the three years
-print(ivyleagues_03)
 ```
 
 
-#### Extract the rank
+#### Scrape the overall rankings
+
+Finally, we can use the functions and dataframes created previously to build a function "scrape_university_ranking_global()" that scrapes the overall ranking for each ivyleague university from the [Academic Ranking of World Universities Website](https://www.shanghairanking.com/) for the years 2003, 2013, and 2023. The function does not take any input arguments, yet notice that it calls other functions such as "search_for()" that do take input arguments. Upon execution, the function returns one dataframe of three columns - "Institution", "Year", and "Rank". As we scraped the ranking of eight universities for three years, we should expect the dataframe to have 24 rows.
+
+The code for the function can be seen in the Appendix.
 
 ```{r extract the world rank of each ivy league}
 
 # Scrape the rank for each ivy league university from the website for the years 2003, 2013, 2023
 
+scrape_university_ranking_global <- function() {
+  ##########
+  ## 2023 ##
+  ##########
 
-##########
-## 2023 ##
-##########
+  # Navigate to 2023
+  navigate_year()
 
-# Navigate to 2023
-navigate_year()
+  academic_ranking_23 <- driver$findElement(using = "xpath", value = '/html/body/div/div/div/div[2]/div/div[1]/div[2]/div[2]/div/div[1]/div/div[2]/ul/li[1]')
+  academic_ranking_23$clickElement()
 
-academic_ranking_23 <- driver$findElement(using = "xpath", value = '/html/body/div/div/div/div[2]/div/div[1]/div[2]/div[2]/div/div[1]/div/div[2]/ul/li[1]')
-academic_ranking_23$clickElement()
+  # Loop through all ivy league universities in the ivyleagues dataset and call the search_for function for each university
+  for (i in seq_along(ivyleagues_23$Institution)) {
+  
+    # Search for the university
+    search_for(ivyleagues_23$Institution[i])
+  
+    # Add a delay to allow the page to load before the next search
+    Sys.sleep(2)  
+  
+    # Extract the rank from the webpage and assign it to the Rank column
+    ivyleagues_23$Rank[i] <- extract_rank()
+  
+    # Assign the year 2023 to the Year column
+    #ivyleagues_23$Year[i] <- extract_year()
+    ivyleagues_23$Year[i] <- "2023"
 
-# Loop through all ivy league universities in the ivyleagues dataset and call the search_for function for each university
-for (i in seq_along(ivyleagues_23$Institution)) {
+  }
+
+  ##########
+  ## 2013 ##
+  ##########
+
+  # Navigate to 2013
+  navigate_year()
+
+  academic_ranking_13 <- driver$findElement(using = "xpath", value = '/html/body/div/div/div/div[2]/div/div[1]/div[2]/div[2]/div/div[1]/div/div[2]/ul/li[11]')
+  academic_ranking_13$clickElement()
+
+  for (i in seq_along(ivyleagues_13$Institution)) {
   
-  # Search for the university
-  search_for(ivyleagues_23$Institution[i])
+    # Search for the university
+    search_for(ivyleagues_13$Institution[i])
   
-  # Add a delay to allow the page to load before the next search
-  Sys.sleep(2)  
+    # Add a delay to allow the page to load before the next search
+    Sys.sleep(2)  
   
-  # Extract the rank from the webpage and assign it to the Rank column
-  ivyleagues_23$Rank[i] <- extract_rank()
+    # Extract the rank from the webpage and assign it to the Rank column
+    ivyleagues_13$Rank[i] <- extract_rank()
   
-  # Assign the year 2023 to the Year column
-  #ivyleagues_23$Year[i] <- extract_year()
-  ivyleagues_23$Year[i] <- "2023"
+    # Assign the year 2013 to the Year column
+    ivyleagues_13$Year[i] <- "2013"
+
+  }
+
+  ##########
+  ## 2003 ##
+  ##########
+
+  # Navigate to 2003
+  navigate_year()
+
+  academic_ranking_03 <- driver$findElement(using = "xpath", value = '/html/body/div/div/div/div[2]/div/div[1]/div[2]/div[2]/div/div[1]/div/div[2]/ul/li[21]')
+  academic_ranking_03$clickElement()
+
+  for (i in seq_along(ivyleagues_03$Institution)) {
+  
+    # Search for the university
+    search_for(ivyleagues_03$Institution[i])
+  
+    # Add a delay to allow the page to load before the next search
+    Sys.sleep(2)  
+  
+    # Extract the rank from the webpage and assign it to the Rank column
+    ivyleagues_03$Rank[i] <- extract_rank()
+  
+    # Assign the year 2003 to the Year column
+    ivyleagues_03$Year[i] <- "2003"
+
+  }
+  
+  # Creating a list of data frames
+  ivyleagues_ranks <- rbind(ivyleagues_03, ivyleagues_13, ivyleagues_23)
+
+  return(ivyleagues_ranks)
 
 }
 
-##########
-## 2013 ##
-##########
+`````
 
-# Navigate to 2013
-navigate_year()
 
-academic_ranking_13 <- driver$findElement(using = "xpath", value = '/html/body/div/div/div/div[2]/div/div[1]/div[2]/div[2]/div/div[1]/div/div[2]/ul/li[11]')
-academic_ranking_13$clickElement()
+#### Call the ARWU ranking webscraper
 
-for (i in seq_along(ivyleagues_13$Institution)) {
-  
-  # Search for the university
-  search_for(ivyleagues_13$Institution[i])
-  
-  # Add a delay to allow the page to load before the next search
-  Sys.sleep(2)  
-  
-  # Extract the rank from the webpage and assign it to the Rank column
-  ivyleagues_13$Rank[i] <- extract_rank()
-  
-  # Assign the year 2013 to the Year column
-  ivyleagues_13$Year[i] <- "2013"
+Now, we will call the function "scrape_university_ranking_global() to scrape the global ranking for the years 2003, 2013, and 2023. The function returns a dataframe, which we will assign to the name "ivyleagues_ranks".
 
-}
+```{r call the global rank scraping function, echo=TRUE}
 
-##########
-## 2003 ##
-##########
-
-# Navigate to 2003
-navigate_year()
-
-academic_ranking_03 <- driver$findElement(using = "xpath", value = '/html/body/div/div/div/div[2]/div/div[1]/div[2]/div[2]/div/div[1]/div/div[2]/ul/li[21]')
-academic_ranking_03$clickElement()
-
-for (i in seq_along(ivyleagues_03$Institution)) {
-  
-  # Search for the university
-  search_for(ivyleagues_03$Institution[i])
-  
-  # Add a delay to allow the page to load before the next search
-  Sys.sleep(2)  
-  
-  # Extract the rank from the webpage and assign it to the Rank column
-  ivyleagues_03$Rank[i] <- extract_rank()
-  
-  # Assign the year 2003 to the Year column
-  ivyleagues_03$Year[i] <- "2003"
-
-}
+# Call the global rank scraping function
+ivyleagues_ranks <- scrape_university_ranking_global()
 ```
 
-```{r print the tables}
 
-#print(ivyleagues_23)
-#print(ivyleagues_03)
-#print(ivyleagues_13)
-```
+Before adding the table to the universities_db database, we need to calculate the midpoint for the observations that reported a range for the rank instead of a single number. The "calculate_midpoint()" function can be found in the appendix.
 
-
-
-
-
-
-```{r merge the institution columns with the year columns}
-
-
-# We actually do not want this -> does not make sense with regard to relational database
-#ivyleagues_03$Institution <- paste(ivyleagues_03$Institution, ivyleagues_03$Year, sep = "-")
-#ivyleagues_03$Year <- NULL
-
-#ivyleagues_13$Institution <- paste(ivyleagues_13$Institution, ivyleagues_13$Year, sep = "-")
-#ivyleagues_13$Year <- NULL
-
-#ivyleagues_23$Institution <- paste(ivyleagues_23$Institution, ivyleagues_23$Year, sep = "-")
-#ivyleagues_23$Year <- NULL
-
-
-# Merge all three data sets
-
-ivyleagues_ranks <- rbind(ivyleagues_03, ivyleagues_13, ivyleagues_23)
+```{r calculate the midpoint for global rank}
 
 # Function to calculate midpoint from a range
-
 calculate_midpoint <- function(rank) {
   for (i in seq_along(rank)) {
   range_midpoint <- mean(as.numeric(strsplit(rank[i], "-")[[1]])) 
   return(range_midpoint)}
 }
 
+# Calculate the midpoint
 ivyleagues_ranks$Rank <- sapply(ivyleagues_ranks$Rank, calculate_midpoint)
 ```
 
 
 #### Write it to the database
+
+Finally, we can write the table to our relational database.
 
 ```{r write the ivyleagues_ranks table to the relational database}
 
@@ -739,31 +747,36 @@ ivyleagues_ranks$Rank <- sapply(ivyleagues_ranks$Rank, calculate_midpoint)
 dbWriteTable(db, "ivyleagues_ranks", ivyleagues_ranks, overwrite = TRUE)
 
 # Testing that it worked with a simple query
-dbGetQuery(db, "SELECT * FROM ivyleagues_ranks LIMIT 8")
+#dbGetQuery(db, "SELECT * FROM ivyleagues_ranks LIMIT 8")
 
 ```
 
 
+We can test whether the scraping worked properly by using the “check_table()” function. It should return a table of 24 rows and 3 columns, namely "Institution", "Year", and "Rank".
 
-#### Check the existence of the table
+```{r check the existence of the ivyleagues_ranks table, echo=TRUE}
 
-```{r}
+# Check the existence of the ivyleagues_ranks table
 check_table(db, "ivyleagues_ranks")
 ```
+
+
 #### Navigate back to the home page
+
+Before going over to the next exercise, we will navigate back to the home page of the website to prevent errors while scraping information from a different place within the website.
 
 ```{r navigate to the home page}
 
 # Navigate to the home page to make it easier to keep working on this website
 home_page <- driver$findElement(using = "xpath", value = '/html/body/div/div/div/div[1]/div[1]/div/div[2]/ul/li[1]/a')
-  
-# Click on the element
+
 home_page$clickElement()
 ```
 
 
 ### b. Scraping subject ranks for 2023
 
+**Task**
 Extend your webscraper (or create a new one) that gathers for each **Ivy League university only**:
 
 i. The rankings of the university for **every social science** for which the university has been ranked. Again, if a range is given, take the midpoint.
@@ -775,7 +788,11 @@ Your final table should be in tidy long format, where each row uniquely identifi
 
 #### Preparation for the scraping
 
-0. Navigate to page with the data on the university ranking by subject
+Before scraping the rankings for different social sciences for the ivyleague universities, we need to create a few functions.
+
+##### 0. Navigate to page with the data on the university ranking by subject
+
+Firstly, we need to navigate to the place on the website where the subject-specific rankings for each university are found. The data we are interested can be found under "Universities" in the navigation bar on top of the home page of the shanghai ranking website. After navigating, we will create the functions needed for the scraping.
 
 ```{r function that navigates to the subject rankings}
 
@@ -789,7 +806,9 @@ navigate_universities()
 ```
 
 
-1. Function that searches for each ivy league university in the dataframe and selects the first result
+##### 1. Search ivyleagues and navigate to individual page
+
+Firstly, we will create a function that searches for each individual university and navigates to the university specific website on which the university's rankings for each subject are published. The function "search_general_ranking()" takes the university's name as the input argument and navigates to its website. It does not create or return any data objects.
 
 ```{r function that searches for the ivys in the general ranking and sekects it}
 
@@ -812,21 +831,13 @@ search_general_ranking <- function(term) {
 
 }
 
-# Test
-#navigate_universities() 
-#Sys.sleep(2)
-#search_general_ranking("University of Pennsylvania")
-#navigate_universities() 
-#Sys.sleep(2)
-#search_general_ranking("Yale University")
-#navigate_universities() 
-#Sys.sleep(2)
-#search_general_ranking("Princeton University")
-
 ```
 
 
-2. Function that filters for the social sciences
+##### 2. Filter for the social sciences
+
+Secondly, we need a function that filters the rankings published on the individual university page for social sciences only. The function "filter_social_sciences()" neither takes any input arguments nor creates or returns any data objects. It simply opens up the drop down menu holding the filter options and selects "Social Sciences".
+
 ```{r filter for social sciences}
 
 # A function that filters for the social sciences in the ranking options (with js)
@@ -849,11 +860,11 @@ filter_social_sciences <- function() {
   social_sciences_element$clickElement()
   
 }
-
-#filter_social_sciences()
 ```
 
-3. Scrape the ranks
+##### 3. Extract the social science ranks
+
+Lastly, we need a function that extracts the ranks of all social sciences for the individual universities. Before defining the function, we create an empty table "social_science_ranks" that has three columns: "Institution", "Subject", and "Number". The function "extract_social_science_rank" takes the university name and the "social_science_ranks" table as an input arguments and appends the scraped ranks to the table. It returns the social_science_ranks table including the scraped data for the university that was the input argument. Note that when executing the function several times, it will continue to append the new data to the same table instead of overwriting previously extracted data.
 
 ```{r}
 social_science_ranks <- data.frame(Institution = character(),
@@ -879,13 +890,12 @@ extract_social_science_rank <- function(institution_name, existing_table) {
   return(existing_table)
 }
 
-#social_science_ranks <- extract_social_science_rank("Princeton University", social_science_ranks)
-#social_science_ranks <- extract_social_science_rank("University of Pennsylvania", social_science_ranks)
-
 ```
 
 
-#### Scrape
+#### Scrape the social science rankings
+
+Now, we can use the previously defined functions to scrape the social science rankings for all ivyleagues.
 
 ```{r scrape social science rankings}
 
@@ -1060,6 +1070,7 @@ Sys.sleep(2)
 #Sys.sleep(2) 
 
 #for (i in seq_along(ivyleagues$full_name)) {
+  
   # Search for the university
 #  search_general_ranking(ivyleagues$full_name[i])
   
@@ -1083,14 +1094,20 @@ Sys.sleep(2)
 
 
 
-#### Calculate the midpoint for the rank
+#### Calculate the midpoint 
 
-```{r}
+Using the "calculate_midpoint()" function, we get the midpoint for the observations that reported a range for a specific ranking.
+
+```{r calculate the midpoint for social science ranks}
+
+# Calculate the midpoint for the social science rankings that were displayed as a range
 social_science_ranks$Number <- sapply(social_science_ranks$Number, calculate_midpoint)
 ```
 
 
 #### Write the table to the database
+
+Finally, we can write the table to our relational database.
 
 ```{r write the social_science_ranks table to the relational database}
 
@@ -1099,17 +1116,23 @@ social_science_ranks$Number <- sapply(social_science_ranks$Number, calculate_mid
 dbWriteTable(db, "social_science_ranks", social_science_ranks, overwrite = TRUE)
 
 # Testing that it worked with a simple query
-dbGetQuery(db, "SELECT * FROM social_science_ranks LIMIT 20")
+#dbGetQuery(db, "SELECT * FROM social_science_ranks LIMIT 20")
 
 ```
 
-#### Check the existence of the table
+We can test whether the scraping worked properly by using the "check_table()" function. It should return a table of 86 rows and 3 columns, namely "Institution", "Subject", and "Number".
 
-```{r}
+```{r check the existence of the social_science_ranks table, echo=TRUE}
+
+# Check the existence of the social_science_ranks table
 check_table(db, "social_science_ranks")
 ```
 
 #### Navigate back to the homepage
+
+Lastly, we navigate back to the homepage.
+
+QUESTION: maybe we can already close the driver here no?
 
 ```{r navigate to home page}
 
