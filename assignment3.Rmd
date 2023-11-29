@@ -23,6 +23,8 @@ library(DBI)
 library(RSQLite)
 library(RSelenium)
 library(netstat)
+library(httr)
+library(jsonlite)
 ```
 
 
@@ -1152,6 +1154,176 @@ home_page$clickElement()
 
 
 
+
+
+## Exercise 4
+
+We are now going to gather a variety of additional data for each **Ivy League university** only from two APIs.
+
+### a. Gathering financial data from a raw API
+
+**Task**
+First, for each **Ivy League university only** we are going to gather financial data from the [ProPublica API](https://projects.propublica.org/nonprofits/api). Using `httr`, access the `Organization Method` endpoint for each Ivy League university, using the EIN variable provided in Exercise 2.c, to gather the following variables for the years 2010 - 2020: 
+
+i. Total revenue
+ii. Total assets
+
+Once you have retrieved these data, format them in a tidy long format, where each row is a unique combination of university and year (e.g., Harvard-2020). Write the data as a new table -- appropriately and clearly named -- to your relational database. Check for the existence and correct dimensionality of your written table using the function you wrote in Exercise 2.d. Include only the call to the function and the output in the main section of your `.html` file.
+
+
+#### Write functions
+
+##### 1. Function that gets the asset amount for a given ein
+
+We create a function that will return the asset_amount for the universities given the ein number we put in.
+
+```{r create get_asset_amount_function}
+
+# Function to get asset amount for a given ein
+get_asset_amount <- function(ein) {
+  url <- paste0("https://projects.propublica.org/nonprofits/api/v2/organizations/", ein, ".json")
+  response <- GET(url)
+  
+  if (!http_error(response)) {
+    data <- content(response, "parsed")
+    asset_amount <- data$organization$asset_amount
+    return(asset_amount)
+  } else {
+    warning(paste("Failed to retrieve data for eid:", ein))
+    return(NA)
+  }
+}
+```
+
+##### 2. Function that gets the revenue amount for a given ein
+
+Furthermore, we create a GET request that will return the revenue_amount for the universities given the ein number we put in.
+
+```{r create get_revenue_amount function}
+
+# Function to get revenue amount for a given ein
+get_revenue_amount <- function(ein) {
+  url <- paste0("https://projects.propublica.org/nonprofits/api/v2/organizations/", ein, ".json")
+  response <- GET(url)
+  
+  if (!http_error(response)) {
+    data <- content(response, "parsed")
+    revenue_amount <- data$organization$revenue_amount
+    return(revenue_amount)
+  } else {
+    warning(paste("Failed to retrieve data for eid:", ein))
+    return(NA)
+  }
+}
+```
+
+#### Create a dataframe
+
+We also need a dataframe that we can then add the extracted asset and revenue values to. The data frame "finance_df" has eight rows, which all represent the ivyleagues as in the "ivyleagues" dataframe. It has four variables which are represented by one column each. 
+
+1. "Institution" holds the full name of the ivyleague.
+2. "ein" is the Employer Identification Number as extracted from the ivyleagues.csv file in exercise 2c.
+3. "total_revenue" holds the total revenue of the university. As of now, this column is empty.
+4. "total_assets" holds the total assets of the university. As of now, this column is empty.
+
+```{r create finance_df}
+
+# Create a data frame for the financial information
+finance_df <- data.frame(
+  Institution = ivyleagues$full_name,
+  # Add a column for the EIN
+  ein = ivyleagues$ein,
+  # Add an empty column for the total revenue
+  total_revenue = NA,
+  # Add an empty column for the total assets
+  total_assets = NA,
+  stringsAsFactors = FALSE
+)
+```
+
+
+#### Apply the functions 
+
+Now, we will run the two functions, get_asset_amount and get_revenue_amount, to extract the total assets and the total revenue for each ivyleague university. We use sapply() to apply the function to each observation in finance_df.
+
+```{r extract total_assets and total_revenue, echo=TRUE}
+
+# Update total_assets column using the get_asset_amount function
+finance_df$total_assets <- sapply(finance_df$ein, get_asset_amount)
+
+# Update total_revenue column using the get_revenue_amount function
+finance_df$total_revenue <- sapply(finance_df$ein, get_revenue_amount)
+
+# Print the updated data frame
+print(finance_df)
+```
+
+
+
+
+```{r}
+
+# Problem: Harvard has the value 0 for the total_revenue and the total_assets
+ein_harvard = 42103580
+url_harvard <- paste0("https://projects.propublica.org/nonprofits/api/v2/organizations/", ein_harvard, ".json")
+response_harvard <- GET(url_harvard)
+data_harvard <- content(response_harvard, "parsed")
+```
+
+
+```{r}
+## data_harvard$filings_with_data[[1]] corresponds to year 2021
+data_harvard$filings_with_data[[1]]$tax_prd_yr
+
+## therefore, we can get the total revenue through this code:
+data_harvard$filings_with_data[[1]]$totrevenue
+
+## and the total assets
+data_harvard$filings_with_data[[1]]$totassetsend
+
+
+
+## Try another year:
+data_harvard$filings_with_data[[2]]$tax_prd_yr
+
+```
+
+
+
+#### Write it to the database
+
+Finally, we can write the table to our relational database.
+
+```{r write the finance_df table to the relational database}
+
+# Adding the table to the relational database
+# Only include overwrite = TRUE for practicing purpose
+dbWriteTable(db, "finance_df", finance_df, overwrite = TRUE)
+
+# Testing that it worked with a simple query
+#dbGetQuery(db, "SELECT * FROM finance_df LIMIT 8")
+
+```
+
+
+We can test whether the scraping worked properly by using the “check_table()” function. It should return a table of XXXX rows and XX columns, namely "XXX", "XXX", and "XXX".
+
+```{r check the existence of the finance_df table, echo=TRUE}
+
+# Check the existence of the ivyleagues_ranks table
+check_table(db, "finance_df")
+```
+
+
+
+
+
+
+
+
+
+
+## Exercise 5
 
 ## Close the stuff again
 
