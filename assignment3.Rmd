@@ -1171,68 +1171,27 @@ ii. Total assets
 Once you have retrieved these data, format them in a tidy long format, where each row is a unique combination of university and year (e.g., Harvard-2020). Write the data as a new table -- appropriately and clearly named -- to your relational database. Check for the existence and correct dimensionality of your written table using the function you wrote in Exercise 2.d. Include only the call to the function and the output in the main section of your `.html` file.
 
 
-#### Write functions
-
-##### 1. Function that gets the asset amount for a given ein
-
-We create a function that will return the asset_amount for the universities given the ein number we put in.
-
-```{r create get_asset_amount_function}
-
-# Function to get asset amount for a given ein
-get_asset_amount <- function(ein) {
-  url <- paste0("https://projects.propublica.org/nonprofits/api/v2/organizations/", ein, ".json")
-  response <- GET(url)
-  
-  if (!http_error(response)) {
-    data <- content(response, "parsed")
-    asset_amount <- data$organization$asset_amount
-    return(asset_amount)
-  } else {
-    warning(paste("Failed to retrieve data for eid:", ein))
-    return(NA)
-  }
-}
-```
-
-##### 2. Function that gets the revenue amount for a given ein
-
-Furthermore, we create a GET request that will return the revenue_amount for the universities given the ein number we put in.
-
-```{r create get_revenue_amount function}
-
-# Function to get revenue amount for a given ein
-get_revenue_amount <- function(ein) {
-  url <- paste0("https://projects.propublica.org/nonprofits/api/v2/organizations/", ein, ".json")
-  response <- GET(url)
-  
-  if (!http_error(response)) {
-    data <- content(response, "parsed")
-    revenue_amount <- data$organization$revenue_amount
-    return(revenue_amount)
-  } else {
-    warning(paste("Failed to retrieve data for eid:", ein))
-    return(NA)
-  }
-}
-```
 
 #### Create a dataframe
 
-We also need a dataframe that we can then add the extracted asset and revenue values to. The data frame "finance_df" has eight rows, which all represent the ivyleagues as in the "ivyleagues" dataframe. It has four variables which are represented by one column each. 
+We create a dataframe "finance_df" that we will later use to add the extracted asset and revenue values to. It has four variables which are represented by one column each:
 
 1. "Institution" holds the full name of the ivyleague.
 2. "ein" is the Employer Identification Number as extracted from the ivyleagues.csv file in exercise 2c.
 3. "total_revenue" holds the total revenue of the university. As of now, this column is empty.
 4. "total_assets" holds the total assets of the university. As of now, this column is empty.
 
-```{r create finance_df}
+As of now, the dataframe does not contain any observations. After having retrieved the financial data from the API we will add it to the finance_df dataframe. Then, the rows in the data frame should represent the ivyleagues for each year (e.g., Harvard - 2015). Since we are interested in the data for 11 years (asssuming that 2010 - 2020 is inclusive of the years 2010 and 2020) for eight universities, we should expect the final dataframe to have 88 rows.
 
-# Create a data frame for the financial information
+```{r create an empty dataframe finance_df}
+
+# Create an empty dataframe for the financial information
 finance_df <- data.frame(
-  Institution = ivyleagues$full_name,
+  Institution = NA,
   # Add a column for the EIN
-  ein = ivyleagues$ein,
+  ein = NA,
+  # Add an empty column for the year
+  year = NA,
   # Add an empty column for the total revenue
   total_revenue = NA,
   # Add an empty column for the total assets
@@ -1241,53 +1200,129 @@ finance_df <- data.frame(
 )
 ```
 
+#### Write functions
 
-#### Apply the functions 
+The final function that extracts the data on total revenue and total assets should only take one input argument - namely the ein. However, we also need the name of the universities and the url that we need to query the API for data on the university of interest. Therefore, we will first need to write functions that get this information only using the ein as input.
 
-Now, we will run the two functions, get_asset_amount and get_revenue_amount, to extract the total assets and the total revenue for each ivyleague university. We use sapply() to apply the function to each observation in finance_df.
+##### 1. Function: get the university name given the ein
 
-```{r extract total_assets and total_revenue, echo=TRUE}
+We write a function that gets the university name corresponding to an ein as found in the "ivyleagues" data. The function "get_university_name()" takes the ein as the only input argument and returns the university's full name.
 
-# Update total_assets column using the get_asset_amount function
-finance_df$total_assets <- sapply(finance_df$ein, get_asset_amount)
+```{r get the university name given the ein}
 
-# Update total_revenue column using the get_revenue_amount function
-finance_df$total_revenue <- sapply(finance_df$ein, get_revenue_amount)
+# Function that gets the university name given the ein
+get_university_name <- function(ein) {
+  # Look for the ein in the dataframe  
+  matching_row <- ivyleagues[ivyleagues$ein == ein, ]
+  # Check if a match is found
+  if (nrow(matching_row) > 0) {
+    # Return the corresponding university name
+    return(matching_row$full_name)
+  } else {
+    # Return a message indicating no match found
+    return("University not found")
+  }
+}
 
-# Print the updated data frame
-print(finance_df)
+# name <- get_university_name(231352685)
+```
+
+##### 2. Function: get the data by using individual GET requests from the ein
+
+We also need to create personalised GET requests that retrieve the data for each university given their ein. Therefore, we will need to write a function that uses the ein as input argument to:
+
+- firstly create an individual url: "https://projects.propublica.org/nonprofits/api/v2/organizations/", ein, ".json",
+- secondly create an individualised query that retrieves the data for the university of which we have inputted the ein, and
+- thirdly parse the content of the query result and return it.
+
+```{r get the data from the API given the ein}
+
+# Function that queries the API for each university's data given their ein
+get_data <- function(ein) {
+  # Create a url given the ein
+  url <- paste0("https://projects.propublica.org/nonprofits/api/v2/organizations/", ein, ".json")
+  response <- GET(url)
+  api_data <- content(response, "parsed")
+  
+  return(api_data)
+}
+
+# dt <- get_data(231352685)
+```
+
+##### 3. Function: get the revenue and assets for each university given the ein
+
+Lastly, we will need to put everything together. We create a function that takes the ein as input. It executes "get_university_name()" and "get_data()" to retrieve the name of the university and queries the API for the data corresponding to the university. Then, this function should run through said data and retrieve the total asset and total revenue values for all of the years that we have data available. Note that this means that the function does not necessarily give us the data for the years 2010-2020. We will have to later modify the dataframe by deleting potential instances that we are not interested in (e.g., for the year 2021) and by adding rows of NA's for years for which the financial data is not available. 
+
+The function will append this data to the dataframe "finance_df" that we have previously created.
+
+```{r get the finance data using the previously defined functions}
+
+# function that gets the finance data given the ein and using the functions get_university_name and get_data
+get_finance_data <- function(ein) {
+  # Get the university name given the ein
+  name <- get_university_name(ein)
+  
+  # Get the data given the ein
+  dt <- get_data(ein)
+  
+  # Loop to append values
+  for (i in seq(length(dt$filings_with_data))) {
+    # Append the values to the dataframe
+    finance_df <- rbind(finance_df, data.frame(Institution = name,
+                                               ein = ein,
+                                               year = dt$filings_with_data[[i]]$tax_prd_yr,
+                                               total_assets = dt$filings_with_data[[i]]$totassetsend,
+                                               total_revenue = dt$filings_with_data[[i]]$totrevenue))
+  }
+
+  # Return the resulting dataframe
+  return(finance_df)
+}
 ```
 
 
+#### Call get_finance_data() to retrieve asset and revenue values
 
+Now, we can use lapply() to execute get_finance_data() on all observations in the ivyleagues dataframe using the ein column.
 
-```{r}
+```{r call the get_finance_data() function, echo=TRUE}
 
-# Problem: Harvard has the value 0 for the total_revenue and the total_assets
-ein_harvard = 42103580
-url_harvard <- paste0("https://projects.propublica.org/nonprofits/api/v2/organizations/", ein_harvard, ".json")
-response_harvard <- GET(url_harvard)
-data_harvard <- content(response_harvard, "parsed")
+# Call the "get_finance_data()" function
+result_list <- lapply(ivyleagues$ein, get_finance_data)
+finance_df <- do.call(rbind, result_list)
 ```
 
+#### Format the finance_df
 
-```{r}
-## data_harvard$filings_with_data[[1]] corresponds to year 2021
-data_harvard$filings_with_data[[1]]$tax_prd_yr
+As previously mentioned, the finance_df that we retrieved needs to be modified before writing it to the database. Not for all universities the data on the revenue and assets is available for each year from 2010 to 2020 (inclusive). Secondly, due to the nature of our function and the structure of the API's data, we have also extracted data for years that we are not interested in. We will delete these rows and create rows with missing values for observations of years of interest that are missing.
 
-## therefore, we can get the total revenue through this code:
-data_harvard$filings_with_data[[1]]$totrevenue
+```{r format the finance_df}
 
-## and the total assets
-data_harvard$filings_with_data[[1]]$totassetsend
+# Filter for observations of the years 2010-2020
+finance_df <- finance_df %>%
+  filter(year >= 2010 & year <= 2020) %>%
+  na.omit() 
 
+# Fill NA values for missing years
+complete_df <- expand.grid(year = 2010:2020, 
+                           ein = unique(finance_df$ein))
 
+# Add the "Institution" column to complete_df
+complete_df <- complete_df %>%
+  left_join(unique(finance_df[, c("ein", "Institution")]), by = "ein") %>%
+  arrange(ein, year)
 
-## Try another year:
-data_harvard$filings_with_data[[2]]$tax_prd_yr
+# Merge with the original dataframe
+finance_df <- complete_df %>%
+  left_join(finance_df, by = c("year", "ein")) %>%
+  arrange(ein, year)
 
+finance_df <- finance_df %>%
+  select(-Institution.y, Institution = Institution.x)
 ```
 
+**Note**: The final dataframe has missing values. For instance, the data for total assets and total revenue of Harvard University is unavailable for the years 2010 and 2020.
 
 
 #### Write it to the database
@@ -1301,12 +1336,12 @@ Finally, we can write the table to our relational database.
 dbWriteTable(db, "finance_df", finance_df, overwrite = TRUE)
 
 # Testing that it worked with a simple query
-#dbGetQuery(db, "SELECT * FROM finance_df LIMIT 8")
+#dbGetQuery(db, "SELECT * FROM finance_df LIMIT 18")
 
 ```
 
 
-We can test whether the scraping worked properly by using the “check_table()” function. It should return a table of XXXX rows and XX columns, namely "XXX", "XXX", and "XXX".
+We can test whether the scraping worked properly by using the “check_table()” function. It should return a table of 88 rows and 5 columns, namely "year", "ein", "Institution", "total_revenue", and "total_assets".
 
 ```{r check the existence of the finance_df table, echo=TRUE}
 
@@ -1316,7 +1351,15 @@ check_table(db, "finance_df")
 
 
 
+### b. Gathering local economic data from a packaged API 
 
+The `tidycensus` package provides a convenient front-end for access to the US Census Bureau's API (you will want to consult the [documentation for the package](https://walker-data.com/tidycensus/) closely). Using the package, retrieve the names of all the Counties in the US and their estimated median household income for every county for both 2015 and 2020 (based on the American Community Survey (ACS)). 
+
+Create a table for the Ivy League universities that includes the university name, the name of the County in which the campus is located, and the estimated median household income for the County, for 2015 and for 2020. 
+
+Format the final table in a tidy long format, where each row is a unique combination of university and year (e.g. Harvard-2015). Write the data as a new table -- appropriately and clearly named -- to your relational database. Check for the existence and correct dimensionality of your written table using the function you wrote in Exercise 2.d. Include only the call to the function and the output in the main section of your `.html` file.
+
+*Note*: To access the US Census Bureau API (via `tidycensus` or otherwise) you must create a unique access key; details of this process can be found [here](https://api.census.gov/data/key_signup.html). Remember to store your key securely and privately -- `tidycensus` has a built in function for this purpose. Points will be deducted if you include a hard-coded access key in your solution. 
 
 
 
