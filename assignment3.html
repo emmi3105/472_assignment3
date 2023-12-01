@@ -392,35 +392,27 @@ db &lt;- dbConnect(RSQLite::SQLite(), &quot;universities_db.sqlite&quot;)</code>
 </div>
 <div id="check-for-the-existence-of-the-database" class="section level3">
 <h3>Check for the existence of the database</h3>
-<p>We will use file.exist() to check for the existence of the relational
-database. If that returns TRUE, the database exists.</p>
 <pre class="r"><code># Check existence of the database
 print(file.exists(&quot;universities_db.sqlite&quot;))</code></pre>
 <pre><code>## [1] TRUE</code></pre>
+<p>As the output of the code chunk above is “TRUE”, the database
+exists.</p>
 </div>
 </div>
 <div id="exercise-2" class="section level2">
 <h2>Exercise 2</h2>
 <div id="a.-gathering-structured-data" class="section level3">
 <h3>a. Gathering structured data</h3>
-<p><strong>Task</strong> Write an automatic webscraping function in R
-that constructs a table (as e.g. a data frame, a tibble, or a data
-table) of all R1 (Very High Research Activity) <strong>and</strong> R2
-(High Research Activity) Research Universities in the United States of
-America. These data can be found on <a href="https://en.wikipedia.org/wiki/List_of_research_universities_in_the_United_States">wikipedia</a>.</p>
 <p><strong>Note</strong>: The solution to Exercise 2a can be found under
 the solution for Exercise 2b.</p>
 </div>
 <div id="b.-gathering-unstructured-data" class="section level3">
 <h3>b. Gathering unstructured data</h3>
-<p><strong>Task</strong> Extend your webscraping function (or create a
-new function) so that it navigates to the dedicated Wikipedia page for
-each university, and captures three additional variables.</p>
 <div id="automatic-webscraping-function-for-2a-and-b" class="section level4">
 <h4>Automatic webscraping function for 2a and b</h4>
-<p>I combined exercise 2a and 2b and directly wrote a webscraping
-function called scrape_wikipedia_tables that returns a dataframe with
-the following variables:</p>
+<p>I combined exercise 2a and 2b and directly wrote and executed a
+webscraping function called scrape_wikipedia_tables() that returns a
+dataframe with the following eight variables:</p>
 <ol style="list-style-type: lower-roman">
 <li>The university’s name</li>
 <li>It’s status (public or private)</li>
@@ -432,233 +424,8 @@ the following variables:</p>
 <li>The total number of students (including both undergraduate and
 postgraduate)</li>
 </ol>
-<p>The first few rows of the resulting table “universities_table” are
-printed out below. Furthermore, in the following two sections, the
-function is explained in more detail.</p>
-<pre class="r"><code>scrape_wikipedia_tables &lt;- function(url) {
-  # Input: URL to wikipedia
-  # Function accesses wikipedia articles on universities and scrapes information from the wikipedia pages.
-  # Output: A table with information on US American R1 and R2 universities. More precisely, the table holds the university&#39;s name, status (private or public), city, state, the url to the university&#39;s Wikipedia page, the university&#39;s geographic coordinates, endowment, and number of total students.
-  
-  ### Exercise 2a: scrape information on the name, status, city, state and the url to the wikipedia page
-  table_indices &lt;- c(19, 27)
-  
-  # Storing the URL&#39;s HTML code
-  html_content &lt;- read_html(url)
-  
-  # Extracting all tables in the document 
-  tab &lt;- html_table(html_content, fill = TRUE)
-
-  # Extract only the tables of interest given the input table_indices
-  selected_tables &lt;- tab[1:length(table_indices)]
-
-  # Iterate over tables and bind rows
-  empty_tibble &lt;- tibble()
-  for (i in 1:length(selected_tables)) {
-    current_table &lt;- as_tibble(selected_tables[[i]][, 1:4])
-    empty_tibble &lt;- bind_rows(empty_tibble, current_table)
-  }
-
-  # Initialize an empty list to store hyperlinks
-  hyperlinks_list &lt;- list()
-
-  # Iterate over the table indices and extract hyperlinks
-  for (index in table_indices) {
-    table_nodes &lt;- html_content %&gt;%
-      html_nodes(paste(&quot;#mw-content-text &gt; div.mw-content-ltr.mw-parser-output &gt; table:nth-child(&quot;, index, &quot;)&quot;, sep = &quot;&quot;))
-  
-    current_node_set &lt;- table_nodes[[1]]
-  
-    hyperlinks_current_node &lt;- current_node_set %&gt;%
-      html_nodes(&quot;td:nth-child(1) a&quot;) %&gt;%
-      html_attr(&quot;href&quot;)
-  
-    # Append the hyperlinks to the list
-    hyperlinks_list &lt;- c(hyperlinks_list, hyperlinks_current_node)
-  }
-
-  # Unlist to flatten the list
-  hyperlinks_list &lt;- unlist(hyperlinks_list, recursive = FALSE)
-
-  # Concatenate the base URL to the extracted hyperlinks
-  hyperlinks_list &lt;- paste0(&quot;https://en.wikipedia.org/&quot;, hyperlinks_list)
-  
-  # Add a new column &#39;Wikipedia_URL&#39; with the extracted URLs
-  empty_tibble$Wikipedia_URL &lt;- hyperlinks_list
-
-    
-  ### Exercise 2b: Add the geographic location, endowment and students
-  
-  #### Geographic location
-
-  university_data &lt;- list()
-
-  for (hyperlink in hyperlinks_list) {
-    university_page &lt;- read_html(hyperlink)
-   
-    # Extract the geographic location using the class selector &#39;geo_default&#39;
-    geographic_location &lt;- university_page %&gt;%
-      html_nodes(&quot;.geo-dec&quot;) %&gt;%
-      html_text() %&gt;%
-      unique()
- 
-    # Store the scraped information in a list
-    university_data &lt;- append(university_data, list(geographic_location))
-  
-  }
-
-  # Add a new column &#39;Geographic_Location&#39; with the scraped data
-  empty_tibble$Geographic_Location &lt;- university_data
-
-  # Keep the first set of coordinates only
-  empty_tibble &lt;- empty_tibble %&gt;%
-    mutate(Geographic_Location = map_chr(Geographic_Location, ~ .[1]))
-  
-  #### Endowment and budget
-
-  endowment_data &lt;- list()
-
-  # Clean text by removing text within brackets
-  clean_text &lt;- function(text) {
-    # Remove text containing brackets within brackets
-    text &lt;- gsub(&quot;\\([^()]*\\)&quot;, &quot;&quot;, text)
-    # Remove text within square brackets
-    text &lt;- gsub(&quot;\\[.*?\\]&quot;, &quot;&quot;, text)
-    # Remove text within round brackets
-    text &lt;- gsub(&quot;\\(.*?\\)&quot;, &quot;&quot;, text)
-    return(text)
-  }
-
-  for (hyperlink in hyperlinks_list) {
-    university_page &lt;- read_html(hyperlink)
-   
-    # Extract the endowment based on text content (entries with a dollar sign)
-    endowment &lt;- university_page %&gt;%
-      html_nodes(&quot;table.infobox th:contains(&#39;Endowment&#39;) + td&quot;) %&gt;%
-      html_text() %&gt;%
-      unique() %&gt;%
-      clean_text()
-  
-
-    # Check if &#39;Endowment&#39; entry exists, if not, extract &#39;Budget&#39;
-    if (length(endowment) == 0) {
-      budget &lt;- university_page %&gt;%
-        html_nodes(&quot;table.infobox th:contains(&#39;Budget&#39;) + td&quot;) %&gt;%
-        html_text() %&gt;%
-        unique() %&gt;%
-        clean_text()
-
-      endowment_data &lt;- append(endowment_data, list(budget))
-    } else {
-      endowment_data &lt;- append(endowment_data, list(endowment))
-    }
-  }
-
-  # Add a new column &#39;Endowment&#39; with the scraped data
-  empty_tibble$Endowment &lt;- endowment_data
-  empty_tibble &lt;- empty_tibble %&gt;%
-    mutate(Endowment = map_chr(Endowment, ~ .[1]))
-
-
-  #### Students
-  
-  # To avoid issues with students being spread on different campuses, scrape total student information by adding information on all undergraduates to all postgraduates
-  
-  undergraduates_data &lt;- list()
-  postgraduates_data &lt;- list()
-
-  for (hyperlink in hyperlinks_list) {
-    university_page &lt;- read_html(hyperlink)
-  
-    # Undergraduates 
-    # Extract the number of undergraduate students
-    undergraduates &lt;- university_page %&gt;%
-      html_nodes(&quot;table.infobox th:contains(&#39;Undergraduates&#39;) + td&quot;) %&gt;%
-      html_text() %&gt;%
-      unique()
-
-    # Extract only the numbers using regular expressions
-    cleaned_undergraduates &lt;- str_extract(undergraduates, &quot;[\\d,]+&quot;)
-  
-    # Assign NA if cleaned_undergraduates is empty
-    cleaned_undergraduates &lt;- ifelse(length(cleaned_undergraduates) == 0, NA, cleaned_undergraduates)
-    undergraduates_data &lt;- append(undergraduates_data, list(cleaned_undergraduates))
-
-    # Postgraduates 
-    # Extract the number of postgraduate students
-    postgraduates &lt;- university_page %&gt;%
-      html_nodes(&quot;table.infobox th:contains(&#39;Postgraduates&#39;) + td&quot;) %&gt;%
-      html_text() %&gt;%
-      unique()
-
-    # Extract only the numbers using regular expressions
-    cleaned_postgraduates &lt;- str_extract(postgraduates, &quot;[\\d,]+&quot;)
-  
-    # Assign NA if cleaned_postgraduates is empty
-    cleaned_postgraduates &lt;- ifelse(length(cleaned_postgraduates) == 0, NA, cleaned_postgraduates)
-    postgraduates_data &lt;- append(postgraduates_data, list(cleaned_postgraduates))
-  }
-
-  # Remove commas from the extracted data and convert to numeric
-  empty_tibble$Undergraduates &lt;- as.numeric(gsub(&quot;,&quot;, &quot;&quot;, unlist(undergraduates_data)))
-  empty_tibble$Postgraduates &lt;- as.numeric(gsub(&quot;,&quot;, &quot;&quot;, unlist(postgraduates_data)))
-
-  # Create a new column &#39;Students&#39; as the sum of Undergraduates and Postgraduates
-  empty_tibble$Students &lt;- ifelse(is.na(empty_tibble$Undergraduates), 
-                                  empty_tibble$Postgraduates, 
-                                  ifelse(is.na(empty_tibble$Postgraduates), 
-                                        empty_tibble$Undergraduates, 
-                                        empty_tibble$Undergraduates + empty_tibble$Postgraduates))
-
-  # If the website neither holds information on undergraduates nor on postgraduates, look for information on total students
-
-  students_data &lt;- list()
-
-  for (hyperlink in hyperlinks_list) {
-    university_page &lt;- read_html(hyperlink)
-   
-    # Extract the students
-    students &lt;- university_page %&gt;%
-      html_nodes(&quot;table.infobox th:contains(&#39;Students&#39;) + td&quot;) %&gt;%
-      html_text() %&gt;%
-      unique()
-
-    # Extract only the numbers using regular expressions
-    cleaned_students &lt;- as.numeric(gsub(&quot;,&quot;, &quot;&quot;, str_extract(students, &quot;[\\d,]+&quot;)))
-    students_data &lt;- append(students_data, list(cleaned_students))
-  }
-
-  # Check if any element in &#39;Students&#39; is NA before assigning
-  if (any(is.na(empty_tibble$Students))) {
-    empty_tibble$Students[is.na(empty_tibble$Students)] &lt;- unlist(students_data)
-  }
-
-  # Remove columns named &#39;Undergraduates&#39; and &#39;Postgraduates&#39;
-  empty_tibble &lt;- select(empty_tibble, -Undergraduates, -Postgraduates)
-  
-  
-  # Finally, return the table including the scraped information
-  return(empty_tibble)
-}
-
-# Run the function using the URL from the Wikipedia page
-url &lt;- &quot;https://en.wikipedia.org/wiki/List_of_research_universities_in_the_United_States&quot;
-
-universities_table &lt;- scrape_wikipedia_tables(url)</code></pre>
-<pre><code>## Warning in empty_tibble$Students[is.na(empty_tibble$Students)] &lt;-
-## unlist(students_data): number of items to replace is not a multiple of
-## replacement length</code></pre>
-<pre class="r"><code>head(universities_table)</code></pre>
-<pre><code>## # A tibble: 6 × 8
-##   Institution    Control City  State Wikipedia_URL Geographic_Location Endowment
-##   &lt;chr&gt;          &lt;chr&gt;   &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;         &lt;chr&gt;               &lt;chr&gt;    
-## 1 Arizona State… Public  Tempe AZ    https://en.w… 33.4209°N 111.9340… &quot;$1.47 b…
-## 2 Auburn Univer… Public  Aubu… AL    https://en.w… 32.603°N 85.486°W   &quot;$1.05 b…
-## 3 Baylor Univer… Privat… Waco  TX    https://en.w… 31.548°N 97.116°W   &quot;$1.97 b…
-## 4 Binghamton Un… Public  Vest… NY    https://en.w… 42.0888°N 75.9670°W &quot;$ 148.1…
-## 5 Boston College Privat… Ches… MA    https://en.w… 42.33500°N 71.1702… &quot;$3.3 bi…
-## 6 Boston Univer… Privat… Bost… MA    https://en.w… 42.34889°N 71.1002… &quot;$3.2 bi…
-## # ℹ 1 more variable: Students &lt;dbl&gt;</code></pre>
+<p>The resulting dataframe is stored under the name
+“universities_table”.</p>
 </div>
 <div id="notes-on-the-function" class="section level4">
 <h4>Notes on the function</h4>
@@ -718,199 +485,109 @@ endowment/budget.</p>
 </div>
 <div id="c.-data-munging" class="section level3">
 <h3>c. Data munging</h3>
-<p><strong>Task</strong>: Download from the course website the
-<code>ivyleague.csv</code> file and store it appropriately on your local
-machine. Call this file into <code>R</code> and create three new
-variables in your main table:</p>
-<ol start="9" style="list-style-type: lower-roman">
-<li>An indicator for whether the university is an Ivy League
-institution</li>
-<li>The university’s county (it would be wise to concatenate both county
-and state into a single string, separated by “,”)</li>
-<li>The university’s EIN (which can be missing for those universities
-not in the Ivy League)</li>
-</ol>
-<div id="read-in-the-data" class="section level4">
-<h4>Read in the data</h4>
-<pre><code>##    uni_name              county         state       ein
-## 1      Penn Philadelphia County  Pennsylvania 231352685
-## 2     Brown   Providence County  Rhode Island  50258809
-## 3  Columbia     New York County      New York 135598093
-## 4   Cornell     Tompkins County      New York 150532082
-## 5 Dartmouth      Grafton County New Hampshire  20222111
-## 6   Harvard    Middlesex County Massachusetts  42103580</code></pre>
-<p>The ivyleagues data contains four variables, namely a
-<strong>shortened</strong> version of each university’s name
-(“uni_name”), the County (“county”) and State (“state”) in which the
-university’s main campus is located, and the university’s Employer
-Identification Number (“ein”). There are six observations in the
-dataset.</p>
+<div id="ivyleagues-dataframe" class="section level4">
+<h4>“ivyleagues” dataframe</h4>
+<p>We have stored “ivyleague.csv” as a dataframe called “ivyleagues”. It
+contains four variables, namely a <strong>shortened</strong> version of
+each university’s name (“uni_name”), the County (“county”) and State
+(“state”) in which the university’s main campus is located, and the
+university’s Employer Identification Number (“ein”). There are eight
+observations in the dataframe.</p>
+<p>Since the university names in “ivyleagues” are shortened, yet later
+on (in our relational database), we want to reference the universities
+by their full name, we create a new variable in the ivyleagues dataframe
+that gives the full name of the universities.</p>
 </div>
 <div id="ivy-league-indicator-county-and-ein" class="section level4">
 <h4>Ivy League Indicator, County and EIN</h4>
-<p>Since the names in the ivyleagues data are shortened, writing a
-function that creates another variable indicating wether the observation
-in our tibble is an ivy league does not work properly. For instance, if
-we would check whether the shortened name (in the variable “uni_name”)
-in the ivyleagues data appears in the long name (in the variable
-“Institution”) in our universities data frame, also universities that
-have similar names but are not ivy leagues will be falsely indicated as
-ivys. For example, not only the ivy league university “Columbia
-University” but also the “Teachers College at Columbia University” will
-be indicated as an ivy. To avoid false indications of ivy leagues, we
-will add another variable to the ivyleages data which includes the full
-name of the universities.</p>
-<pre><code>## # A tibble: 8 × 11
-##   Institution    Control City  State Wikipedia_URL Geographic_Location Endowment
-##   &lt;chr&gt;          &lt;chr&gt;   &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;         &lt;chr&gt;               &lt;chr&gt;    
-## 1 Brown Univers… Privat… Prov… RI    https://en.w… 41.82611°N 71.4030… &quot;$6.6 bi…
-## 2 Columbia Univ… Privat… New … NY    https://en.w… 40.80750°N 73.9619… &quot;$13.3 b…
-## 3 Cornell Unive… Privat… Itha… NY    https://en.w… 42.45361°N 76.4738… &quot;$10.0 b…
-## 4 Dartmouth Col… Privat… Hano… NH    https://en.w… 43.70333°N 72.2883… &quot;$8.5 bi…
-## 5 Harvard Unive… Privat… Camb… MA    https://en.w… 42.37444°N 71.1169… &quot;$50.7 b…
-## 6 Princeton Uni… Privat… Prin… NJ    https://en.w… 40.34528°N 74.6561… &quot;$35.8 b…
-## 7 University of… Privat… Phil… PA    https://en.w… 39.95°N 75.19°W     &quot;$21.0 b…
-## 8 Yale Universi… Privat… New … CT    https://en.w… 41.31639°N 72.9222… &quot;$40.7 b…
-## # ℹ 4 more variables: Students &lt;dbl&gt;, EIN &lt;int&gt;, County &lt;chr&gt;, Ivy_League &lt;dbl&gt;</code></pre>
+<p>Now, we use the “iveleagues” dataframe to create three new variables
+in the “universities_table” dataframe, namely:</p>
+<ol start="9" style="list-style-type: lower-roman">
+<li>“Ivy_League”: An binary variable indicating whether the university
+is an Ivy League institution</li>
+<li>“County”: The university’s county and state (only for Ivy Leagues,
+for all others, “County” is NA)</li>
+<li>“EIN”: The university’s EIN (only for Ivy Leagues, for all others,
+“EIN” is NA)</li>
+</ol>
 </div>
 </div>
 <div id="d.-writing-to-your-relational-database" class="section level3">
 <h3>d. Writing to your relational database</h3>
-<p>Once you have combined all of the above data into a single table,
-ensure that it is in a tidy format where each row is a unique
-university, and each column is a variable (of which there should be
-exactly 11). Write this table to your relational database, making sure
-you give it an <strong>appropriate</strong> and <strong>clear</strong>
-name. Remember to ensure you have a <strong>primary key</strong>
-(e.g. the university name) that uniquely identifies each unit
-(university) in your table.</p>
-<p>Create a function to check for the existence and correct
-dimensionality of your written table. The function should take two
-arguments: the name of your database, and the name of your table. If the
-table exists, the function should report as output the number of rows in
-the table, the number of columns in the table, and the names of the
-columns. <strong>For all of Exercise 2</strong> it is sufficient for you
-to include just the code chunk that defines the function and the output
-of the function in the main section of your submitted <code>.html</code>
-file.</p>
 <div id="check-if-the-data-is-tidy" class="section level4">
 <h4>Check if the data is tidy</h4>
-<p>Firstly, we print out the first few lines of the data frame to ensure
-it is in a tidy format.</p>
-<pre><code>## # A tibble: 6 × 11
-##   Institution    Control City  State Wikipedia_URL Geographic_Location Endowment
-##   &lt;chr&gt;          &lt;chr&gt;   &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;         &lt;chr&gt;               &lt;chr&gt;    
-## 1 Arizona State… Public  Tempe AZ    https://en.w… 33.4209°N 111.9340… &quot;$1.47 b…
-## 2 Auburn Univer… Public  Aubu… AL    https://en.w… 32.603°N 85.486°W   &quot;$1.05 b…
-## 3 Baylor Univer… Privat… Waco  TX    https://en.w… 31.548°N 97.116°W   &quot;$1.97 b…
-## 4 Binghamton Un… Public  Vest… NY    https://en.w… 42.0888°N 75.9670°W &quot;$ 148.1…
-## 5 Boston College Privat… Ches… MA    https://en.w… 42.33500°N 71.1702… &quot;$3.3 bi…
-## 6 Boston Univer… Privat… Bost… MA    https://en.w… 42.34889°N 71.1002… &quot;$3.2 bi…
-## # ℹ 4 more variables: Students &lt;dbl&gt;, EIN &lt;int&gt;, County &lt;chr&gt;, Ivy_League &lt;dbl&gt;</code></pre>
-<p>We can see that each row represents a university. To ensure that each
-row is representative of a unique observation, we use unique(). If the
-length of the unique values of the Institution variable in our tibble is
-equal to the length of the variable without using unique(), we can
-confirm that each row has a different value for “Institution” and thus
-does represent a unique observation.</p>
+<p>We check whether the data is tidy in two steps:</p>
+<ol style="list-style-type: decimal">
+<li>Each row is a unique university</li>
+</ol>
 <pre><code>## [1] &quot;There are 279 unique universities in the dataframe &#39;universities&#39; that are each represented by exactly one row. The data is tidy.&quot;</code></pre>
-<p>To check whether the columns correspond to the 11 variables that we
-are interested in, we use summary().</p>
-<pre><code>##  Institution          Control              City              State          
-##  Length:279         Length:279         Length:279         Length:279        
-##  Class :character   Class :character   Class :character   Class :character  
-##  Mode  :character   Mode  :character   Mode  :character   Mode  :character  
-##                                                                             
-##                                                                             
-##                                                                             
-##                                                                             
-##  Wikipedia_URL      Geographic_Location  Endowment            Students     
-##  Length:279         Length:279          Length:279         Min.   :  1726  
-##  Class :character   Class :character    Class :character   1st Qu.: 11710  
-##  Mode  :character   Mode  :character    Mode  :character   Median : 19618  
-##                                                            Mean   : 24007  
-##                                                            3rd Qu.: 32121  
-##                                                            Max.   :142636  
-##                                                                            
-##       EIN               County            Ivy_League     
-##  Min.   : 20222111   Length:279         Min.   :0.00000  
-##  1st Qu.: 48220002   Class :character   1st Qu.:0.00000  
-##  Median : 98122533   Mode  :character   Median :0.00000  
-##  Mean   :112668604                      Mean   :0.02867  
-##  3rd Qu.:165557687                      3rd Qu.:0.00000  
-##  Max.   :231352685                      Max.   :1.00000  
-##  NA&#39;s   :271</code></pre>
-<p>As we can see, the data is tidy. Each row represents a unique
-university and each column holds one variables. In total, we have 279
-observations and 11 variables.</p>
+<ol start="2" style="list-style-type: decimal">
+<li>Each column is a variable</li>
+</ol>
+<pre><code>## The dataframe has 11 columns:
+## Column 1: Institution
+## Column 2: Control
+## Column 3: City
+## Column 4: State
+## Column 5: Wikipedia_URL
+## Column 6: Geographic_Location
+## Column 7: Endowment
+## Column 8: Students
+## Column 9: EIN
+## Column 10: County
+## Column 11: Ivy_League</code></pre>
+<p>As we can see, the data is tidy. Each row represents one of the 279
+unique universities and each column holds one of the 11 variables.</p>
 </div>
-<div id="write-the-table-to-the-relational-database" class="section level4">
-<h4>Write the table to the relational database</h4>
-<p>We write the table to the relational database “db”. using a simple
-query that selects the first eight rows of the data, we check if the
-addition to the database properly worked. We should receive eight rows
-of data that each hold values for 12 variables. As the unique key, we
-will use the name of the universities, which can be found under
-“Institution”.</p>
-<pre><code>##                Institution              Control          City State
-## 1 Arizona State University               Public         Tempe    AZ
-## 2        Auburn University               Public        Auburn    AL
-## 3        Baylor University Private (non-profit)          Waco    TX
-## 4    Binghamton University               Public        Vestal    NY
-## 5           Boston College Private (non-profit) Chestnut Hill    MA
-## 6        Boston University Private (non-profit)        Boston    MA
-## 7      Brandeis University Private (non-profit)       Waltham    MA
-## 8         Brown University Private (non-profit)    Providence    RI
-##                                             Wikipedia_URL
-## 1 https://en.wikipedia.org//wiki/Arizona_State_University
-## 2        https://en.wikipedia.org//wiki/Auburn_University
-## 3        https://en.wikipedia.org//wiki/Baylor_University
-## 4    https://en.wikipedia.org//wiki/Binghamton_University
-## 5           https://en.wikipedia.org//wiki/Boston_College
-## 6        https://en.wikipedia.org//wiki/Boston_University
-## 7      https://en.wikipedia.org//wiki/Brandeis_University
-## 8         https://en.wikipedia.org//wiki/Brown_University
-##       Geographic_Location        Endowment Students      EIN
-## 1    33.4209°N 111.9340°W   $1.47 billion    142636       NA
-## 2       32.603°N 85.486°W   $1.05 billion     33015       NA
-## 3       31.548°N 97.116°W   $1.97 billion     20626       NA
-## 4     42.0888°N 75.9670°W $ 148.1 million     18148       NA
-## 5   42.33500°N 71.17028°W    $3.3 billion     14570       NA
-## 6   42.34889°N 71.10028°W    $3.2 billion     35527       NA
-## 7 42.365664°N 71.259742°W   $1.20 billion      5558       NA
-## 8   41.82611°N 71.40306°W    $6.6 billion     10425 50258809
-##                            County Ivy_League
-## 1                            &lt;NA&gt;          0
-## 2                            &lt;NA&gt;          0
-## 3                            &lt;NA&gt;          0
-## 4                            &lt;NA&gt;          0
-## 5                            &lt;NA&gt;          0
-## 6                            &lt;NA&gt;          0
-## 7                            &lt;NA&gt;          0
-## 8 Providence County, Rhode Island          1</code></pre>
-</div>
-<div id="function-to-check-the-existence-and-dimensionality" class="section level4">
-<h4>Function to check the existence and dimensionality</h4>
-<p>Create a function to check for the existence and correct
-dimensionality of your written table. The function should take two
-arguments: the name of your database, and the name of your table. If the
-table exists, the function should report as output the number of rows in
-the table, the number of columns in the table, and the names of the
-columns. <strong>For all of Exercise 2</strong> it is sufficient for you
-to include just the code chunk that defines the function and the output
-of the function in the main section of your submitted <code>.html</code>
-file.</p>
+<div id="write-universities_table-to-the-relational-database" class="section level4">
+<h4>Write universities_table to the relational database</h4>
+<p>We write “universities_table” to the relational database “db” under
+the name “universities”. The unique key is the university name, which
+can be accessed via the “Institution” variable.</p>
+<p>Now, we want to check the existence and dimensionality of
+“universities”. We do so by defining a function “check_table” that
+returns the number of rows and columns and the column names of a table
+if it exists in our relational database.</p>
+<pre class="r"><code># Check_table is a function that checks the existence and dimensionality of a table in db
+check_table &lt;- function(db, a_table){
+  
+  # Check if the &quot;universities&quot; table exists
+  if (a_table %in% dbListTables(db)) {
+    
+    # Get the row count
+    query &lt;- paste(&quot;SELECT COUNT(*) FROM&quot;, a_table)
+    row_count &lt;- dbGetQuery(db, query)[1, 1]
+  
+    # Get the column names
+    column_names &lt;- as.character(dbListFields(db, a_table))
+  
+    # Get the column count
+    column_count &lt;- length(unlist(column_names))
+    
+    # Print out dimensions and column names
+    formatted_string &lt;- sprintf(&quot;The table exists and has the following dimensions: \nNumber of rows: %s \nNumber of columns: %s&quot;, row_count, column_count)
+    column_answer &lt;- sprintf(&quot;Column names: %s&quot;, paste(column_names, collapse = &quot;, &quot;))
+    
+    return(cat(formatted_string, column_answer, sep = &quot;\n&quot;))
+    
+  } else {
+    return(cat(&quot;The table does not exist.&quot;))
+  }
+}
+
+# Call check_table on &quot;universities_df&quot;
+check_table(db, &quot;universities_df&quot;)</code></pre>
 <pre><code>## The table exists and has the following dimensions: 
 ## Number of rows: 279 
-## Number of columns: 11 
-## Column names: c(&quot;Institution&quot;, &quot;Control&quot;, &quot;City&quot;, &quot;State&quot;, &quot;Wikipedia_URL&quot;, &quot;Geographic_Location&quot;, &quot;Endowment&quot;, &quot;Students&quot;, &quot;EIN&quot;, &quot;County&quot;, &quot;Ivy_League&quot;)</code></pre>
+## Number of columns: 11
+## Column names: Institution, Control, City, State, Wikipedia_URL, Geographic_Location, Endowment, Students, EIN, County, Ivy_League</code></pre>
 </div>
 </div>
 </div>
 <div id="exercise-3" class="section level2">
 <h2>Exercise 3</h2>
-<p>We are now going to use the <code>Rselenium</code> package to explore
-the <a href="https://www.shanghairanking.com/">Academic Ranking of World
+<p><strong>Task</strong> We are now going to use the
+<code>Rselenium</code> package to explore the <a href="https://www.shanghairanking.com/">Academic Ranking of World
 Universities</a>.<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a></p>
 <div id="a.-scraping-annual-rank" class="section level3">
 <h3>a. Scraping annual rank</h3>
@@ -928,50 +605,80 @@ named – to your relational database. Check for the existence and correct
 dimensionality of your written table using the function you wrote in
 Exercise 2.d. Include only the call to the function and the output in
 the main section of your <code>.html</code> file.</p>
-<div id="launch-the-browser" class="section level4">
-<h4>Launch the browser</h4>
-</div>
-<div id="navigate-to-the-shanghai-ranking-website" class="section level4">
-<h4>Navigate to the shanghai ranking website</h4>
+<div id="launch-the-browser-and-navigate-to-the-website" class="section level4">
+<h4>Launch the browser and navigate to the website</h4>
+<p>In a first step, we will launch the driver and the browser. Note that
+we use chromenever = NULL to avoid launching chrome as chrome browsers
+have shown to be buggy and we prefer using firefox instead.</p>
+<p>When the browser has been launched, we can navigate to the <a href="https://www.shanghairanking.com/">Academic Ranking of World
+Universities Website</a> using the URL provided in the task.</p>
 </div>
 <div id="preparation-for-the-scraping" class="section level4">
 <h4>Preparation for the scraping</h4>
-<ol style="list-style-type: decimal">
-<li><p>Function that searches for each ivy league university in the
-dataframe</p></li>
-<li><p>Function that navigates to a different year</p></li>
-<li><p>Function that extracts the rank of the ivy leagues given what
-university we have searched for using search_for() and what year we are
-currently looking at after having used navigate_year().</p></li>
-<li><p>Data frames for each year we are interested in</p></li>
-</ol>
-<p>We will temporarily create three data frame that hold the names of
-the ivy leagues in their first column. Furthermore, these dataframes
-have an empty column for the rank and another empty column that will
-later hold the year. Before scraping the data from the website, the
-three dataframes look identical. Below, the dataframe for the year 2003
-can be seen.</p>
-<pre><code>##                  Institution Year Rank
-## 1 University of Pennsylvania    0    0
-## 2           Brown University    0    0
-## 3        Columbia University    0    0
-## 4         Cornell University    0    0
-## 5          Dartmouth College    0    0
-## 6         Harvard University    0    0
-## 7       Princeton University    0    0
-## 8            Yale University    0    0</code></pre>
+<p>Before we can scrape the data on the overall rankings of the
+ivyleague universities, we create a few functions that will be needed
+for the webscraper.</p>
+<div id="function-search-for-individual-ivy-league-universities" class="section level5">
+<h5>1. Function: Search for individual ivy league universities</h5>
+<p>We create a function that searches for each individual university.
+The function “search_for()” takes the university’s name as the input
+argument. It does not create or return any data objects but it simply
+filters out the university of interest.</p>
 </div>
-<div id="extract-the-rank" class="section level4">
-<h4>Extract the rank</h4>
+<div id="function-navigate-to-a-different-year" class="section level5">
+<h5>2. Function: Navigate to a different year</h5>
+<p>By default, the Academic Ranking of World Universities Website
+displays the rankings for the year 2023. However, since we are
+interested in the overall ranking of the ivyleagues for three different
+years - namely 2003, 2013 and 2023 - we need a function that can
+navigate to a different year. “navigate_year()” neither takes any input
+arguments nor creates or displays any data objects. It simply finds the
+drop down menu displaying the different options for year filters and
+opens it up. Note that upon executing “navigate_year()” we need to
+further specify, which year should be selected.</p>
 </div>
-<div id="call-the-global-rank-scraping-function" class="section level4">
-<h4>Call the global rank scraping function</h4>
+<div id="function-extract-the-overall-rank" class="section level5">
+<h5>3. Function: Extract the overall rank</h5>
+<p>Finally, we need a function that actually extracts the rank displayed
+after searching for the university and year of interest.
+“extract_rank()” extracts and returns the value displayed in the column
+“World Rank” for the university of interest.</p>
+</div>
+<div id="create-empty-data-frames" class="section level5">
+<h5>4. Create empty data frames</h5>
+<p>Before putting everything together in one scraping function, we will
+temporarily create three data frame - one for each year of interest -
+that hold the names of the ivy leagues in their first column.
+Furthermore, these dataframes have an empty column for the rank and
+another empty column that will later hold the year. Before scraping the
+data from the website, the three dataframes look identical. When
+executing the webscraper, the university names and the respective
+ranking values will be appended to the dataframe corresponding to the
+same year. Once the scraper has extracted all of the information we are
+interested in, we will merge the three dataframes and return the final
+table.</p>
+</div>
+</div>
+<div id="scrape-the-overall-rankings" class="section level4">
+<h4>Scrape the overall rankings</h4>
+<p>Finally, we can use the functions and dataframes created previously
+to build a function “scrape_university_ranking_global()” that scrapes
+the overall ranking for each ivyleague university from the <a href="https://www.shanghairanking.com/">Academic Ranking of World
+Universities Website</a> for the years 2003, 2013, and 2023. The
+function does not take any input arguments, yet notice that it calls
+other functions such as “search_for()” that do take input arguments.
+Upon execution, the function returns one dataframe of three columns -
+“Institution”, “Year”, and “Rank”. As we scraped the ranking of eight
+universities for three years, we should expect the dataframe to have 24
+rows.</p>
+<p>The code for the function can be seen in the Appendix.</p>
+</div>
+<div id="call-the-arwu-ranking-webscraper" class="section level4">
+<h4>Call the ARWU ranking webscraper</h4>
 <p>Now, we will call the function “scrape_university_ranking_global() to
 scrape the global ranking for the years 2003, 2013, and 2023. The
 function returns a dataframe, which we will assign to the
 name”ivyleagues_ranks”.</p>
-<pre class="r"><code># Call the global rank scraping function
-ivyleagues_ranks &lt;- scrape_university_ranking_global()</code></pre>
 <p>Before adding the table to the universities_db database, we need to
 calculate the midpoint for the observations that reported a range for
 the rank instead of a single number. The “calculate_midpoint()” function
@@ -979,25 +686,16 @@ can be found in the appendix.</p>
 </div>
 <div id="write-it-to-the-database" class="section level4">
 <h4>Write it to the database</h4>
-<pre><code>##                  Institution Year  Rank
-## 1 University of Pennsylvania 2003  18.0
-## 2           Brown University 2003  49.0
-## 3        Columbia University 2003  10.0
-## 4         Cornell University 2003  12.0
-## 5          Dartmouth College 2003 126.5
-## 6         Harvard University 2003   1.0
-## 7       Princeton University 2003   7.0
-## 8            Yale University 2003   8.0</code></pre>
-</div>
-<div id="check-the-existence-of-the-table" class="section level4">
-<h4>Check the existence of the table</h4>
-<p>Now, we can check the existence of the “ivyleagues_ranks” table by
-executing the check_table() function. It should return a table of 24
-rows and 3 columns, namely “Institution”, “Year”, and “Rank”.</p>
+<p>Finally, we can write the table to our relational database.</p>
+<p>We can test whether the scraping worked properly by using the
+“check_table()” function. It should return a table of 24 rows and 3
+columns, namely “Institution”, “Year”, and “Rank”.</p>
+<pre class="r"><code># Check the existence of the ivyleagues_ranks table
+check_table(db, &quot;ivyleagues_ranks&quot;)</code></pre>
 <pre><code>## The table exists and has the following dimensions: 
 ## Number of rows: 24 
-## Number of columns: 3 
-## Column names: c(&quot;Institution&quot;, &quot;Year&quot;, &quot;Rank&quot;)</code></pre>
+## Number of columns: 3
+## Column names: Institution, Year, Rank</code></pre>
 </div>
 <div id="navigate-back-to-the-home-page" class="section level4">
 <h4>Navigate back to the home page</h4>
@@ -1084,25 +782,287 @@ the observations that reported a range for a specific ranking.</p>
 “check_table()” function. It should return a table of 86 rows and 3
 columns, namely “Institution”, “Subject”, and “Number”.</p>
 <pre class="r"><code># Check the existence of the social_science_ranks table
-check_table(db, &quot;social_science_ranks&quot;)</code></pre>
+check_table(db, &quot;social_science_ranks_df&quot;)</code></pre>
 <pre><code>## The table exists and has the following dimensions: 
 ## Number of rows: 86 
-## Number of columns: 3 
-## Column names: c(&quot;Institution&quot;, &quot;Subject&quot;, &quot;Number&quot;)</code></pre>
-</div>
-<div id="navigate-back-to-the-homepage" class="section level4">
-<h4>Navigate back to the homepage</h4>
-<p>Lastly, we navigate back to the homepage.</p>
-<p>QUESTION: maybe we can already close the driver here no?</p>
+## Number of columns: 3
+## Column names: Institution, Subject, Number</code></pre>
 </div>
 </div>
+</div>
+<div id="exercise-4" class="section level2">
+<h2>Exercise 4</h2>
+<p>We are now going to gather a variety of additional data for each
+<strong>Ivy League university</strong> only from two APIs.</p>
+<div id="a.-gathering-financial-data-from-a-raw-api" class="section level3">
+<h3>a. Gathering financial data from a raw API</h3>
+<p><strong>Task</strong> First, for each <strong>Ivy League university
+only</strong> we are going to gather financial data from the <a href="https://projects.propublica.org/nonprofits/api">ProPublica
+API</a>. Using <code>httr</code>, access the
+<code>Organization Method</code> endpoint for each Ivy League
+university, using the EIN variable provided in Exercise 2.c, to gather
+the following variables for the years 2010 - 2020:</p>
+<ol style="list-style-type: lower-roman">
+<li>Total revenue</li>
+<li>Total assets</li>
+</ol>
+<p>Once you have retrieved these data, format them in a tidy long
+format, where each row is a unique combination of university and year
+(e.g., Harvard-2020). Write the data as a new table – appropriately and
+clearly named – to your relational database. Check for the existence and
+correct dimensionality of your written table using the function you
+wrote in Exercise 2.d. Include only the call to the function and the
+output in the main section of your <code>.html</code> file.</p>
+<div id="create-a-dataframe" class="section level4">
+<h4>Create a dataframe</h4>
+<p>We create a dataframe “finance_df” that we will later use to add the
+extracted asset and revenue values to. It has four variables which are
+represented by one column each:</p>
+<ol style="list-style-type: decimal">
+<li>“Institution” holds the full name of the ivyleague.</li>
+<li>“ein” is the Employer Identification Number as extracted from the
+ivyleagues.csv file in exercise 2c.</li>
+<li>“total_revenue” holds the total revenue of the university. As of
+now, this column is empty.</li>
+<li>“total_assets” holds the total assets of the university. As of now,
+this column is empty.</li>
+</ol>
+<p>As of now, the dataframe does not contain any observations. After
+having retrieved the financial data from the API we will add it to the
+finance_df dataframe. Then, the rows in the data frame should represent
+the ivyleagues for each year (e.g., Harvard - 2015). Since we are
+interested in the data for 11 years (asssuming that 2010 - 2020 is
+inclusive of the years 2010 and 2020) for eight universities, we should
+expect the final dataframe to have 88 rows.</p>
+</div>
+<div id="write-functions" class="section level4">
+<h4>Write functions</h4>
+<p>The final function that extracts the data on total revenue and total
+assets should only take one input argument - namely the ein. However, we
+also need the name of the universities and the url that we need to query
+the API for data on the university of interest. Therefore, we will first
+need to write functions that get this information only using the ein as
+input.</p>
+<div id="function-get-the-university-name-given-the-ein" class="section level5">
+<h5>1. Function: get the university name given the ein</h5>
+<p>We write a function that gets the university name corresponding to an
+ein as found in the “ivyleagues” data. The function
+“get_university_name()” takes the ein as the only input argument and
+returns the university’s full name.</p>
+</div>
+<div id="function-get-the-data-by-using-individual-get-requests-from-the-ein" class="section level5">
+<h5>2. Function: get the data by using individual GET requests from the
+ein</h5>
+<p>We also need to create personalised GET requests that retrieve the
+data for each university given their ein. Therefore, we will need to
+write a function that uses the ein as input argument to:</p>
+<ul>
+<li>firstly create an individual url: “<a href="https://projects.propublica.org/nonprofits/api/v2/organizations/" class="uri">https://projects.propublica.org/nonprofits/api/v2/organizations/</a>”,
+ein, “.json”,</li>
+<li>secondly create an individualised query that retrieves the data for
+the university of which we have inputted the ein, and</li>
+<li>thirdly parse the content of the query result and return it.</li>
+</ul>
+</div>
+<div id="function-get-the-revenue-and-assets-for-each-university-given-the-ein" class="section level5">
+<h5>3. Function: get the revenue and assets for each university given
+the ein</h5>
+<p>Lastly, we will need to put everything together. We create a function
+that takes the ein as input. It executes “get_university_name()” and
+“get_data()” to retrieve the name of the university and queries the API
+for the data corresponding to the university. Then, this function should
+run through said data and retrieve the total asset and total revenue
+values for all of the years that we have data available. Note that this
+means that the function does not necessarily give us the data for the
+years 2010-2020. We will have to later modify the dataframe by deleting
+potential instances that we are not interested in (e.g., for the year
+2021) and by adding rows of NA’s for years for which the financial data
+is not available.</p>
+<p>The function will append this data to the dataframe “finance_df” that
+we have previously created.</p>
+</div>
+</div>
+<div id="call-get_finance_data-to-retrieve-asset-and-revenue-values" class="section level4">
+<h4>Call get_finance_data() to retrieve asset and revenue values</h4>
+<p>Now, we can use lapply() to execute get_finance_data() on all
+observations in the ivyleagues dataframe using the ein column.</p>
+<p>#```{r call the get_finance_data() function, echo=TRUE}</p>
+</div>
+</div>
+</div>
+<div id="call-the-get_finance_data-function" class="section level1">
+<h1>Call the “get_finance_data()” function</h1>
+<p>result_list &lt;- lapply(ivyleagues$ein, get_finance_data) finance_df
+&lt;- do.call(rbind, result_list) #```</p>
+<div id="format-the-finance_df" class="section level4">
+<h4>Format the finance_df</h4>
+<p>As previously mentioned, the finance_df that we retrieved needs to be
+modified before writing it to the database. Not for all universities the
+data on the revenue and assets is available for each year from 2010 to
+2020 (inclusive). Secondly, due to the nature of our function and the
+structure of the API’s data, we have also extracted data for years that
+we are not interested in. We will delete these rows and create rows with
+missing values for observations of years of interest that are
+missing.</p>
+<p>#```{r format the finance_df}</p>
+</div>
+</div>
+<div id="filter-for-observations-of-the-years-2010-2020" class="section level1">
+<h1>Filter for observations of the years 2010-2020</h1>
+<p>finance_df &lt;- finance_df %&gt;% filter(year &gt;= 2010 &amp; year
+&lt;= 2020) %&gt;% na.omit()</p>
+</div>
+<div id="fill-na-values-for-missing-years" class="section level1">
+<h1>Fill NA values for missing years</h1>
+<p>complete_df &lt;- expand.grid(year = 2010:2020, ein =
+unique(finance_df$ein))</p>
+</div>
+<div id="add-the-institution-column-to-complete_df" class="section level1">
+<h1>Add the “Institution” column to complete_df</h1>
+<p>complete_df &lt;- complete_df %&gt;% left_join(unique(finance_df[,
+c(“ein”, “Institution”)]), by = “ein”) %&gt;% arrange(ein, year)</p>
+</div>
+<div id="merge-with-the-original-dataframe" class="section level1">
+<h1>Merge with the original dataframe</h1>
+<p>finance_df &lt;- complete_df %&gt;% left_join(finance_df, by =
+c(“year”, “ein”)) %&gt;% arrange(ein, year)</p>
+<p>finance_df &lt;- finance_df %&gt;% select(-Institution.y, Institution
+= Institution.x) #```</p>
+<p><strong>Note</strong>: The final dataframe has missing values. For
+instance, the data for total assets and total revenue of Harvard
+University is unavailable for the years 2010 and 2020.</p>
+<div id="write-it-to-the-database-1" class="section level4">
+<h4>Write it to the database</h4>
+<p>Finally, we can write the table to our relational database.</p>
+<p>#```{r write the finance_df table to the relational database}</p>
+</div>
+</div>
+<div id="adding-the-table-to-the-relational-database" class="section level1">
+<h1>Adding the table to the relational database</h1>
+</div>
+<div id="only-include-overwrite-true-for-practicing-purpose" class="section level1">
+<h1>Only include overwrite = TRUE for practicing purpose</h1>
+<p>dbWriteTable(db, “finance_df”, finance_df, overwrite = TRUE) #```</p>
+<p>We can test whether the scraping worked properly by using the
+“check_table()” function. It should return a table of 88 rows and 5
+columns, namely “year”, “ein”, “Institution”, “total_revenue”, and
+“total_assets”.</p>
+<p>#```{r check the existence of the finance_df table, echo=TRUE}</p>
+</div>
+<div id="check-the-existence-of-the-ivyleagues_ranks-table" class="section level1">
+<h1>Check the existence of the ivyleagues_ranks table</h1>
+<p>check_table(db, “finance_df”) #```</p>
+<div id="b.-gathering-local-economic-data-from-a-packaged-api" class="section level3">
+<h3>b. Gathering local economic data from a packaged API</h3>
+<p>The <code>tidycensus</code> package provides a convenient front-end
+for access to the US Census Bureau’s API (you will want to consult the
+<a href="https://walker-data.com/tidycensus/">documentation for the
+package</a> closely). Using the package, retrieve the names of all the
+Counties in the US and their estimated median household income for every
+county for both 2015 and 2020 (based on the American Community Survey
+(ACS)).</p>
+<p>Create a table for the Ivy League universities that includes the
+university name, the name of the County in which the campus is located,
+and the estimated median household income for the County, for 2015 and
+for 2020.</p>
+<p>Format the final table in a tidy long format, where each row is a
+unique combination of university and year (e.g. Harvard-2015). Write the
+data as a new table – appropriately and clearly named – to your
+relational database. Check for the existence and correct dimensionality
+of your written table using the function you wrote in Exercise 2.d.
+Include only the call to the function and the output in the main section
+of your <code>.html</code> file.</p>
+<p><em>Note</em>: To access the US Census Bureau API (via
+<code>tidycensus</code> or otherwise) you must create a unique access
+key; details of this process can be found <a href="https://api.census.gov/data/key_signup.html">here</a>. Remember to
+store your key securely and privately – <code>tidycensus</code> has a
+built in function for this purpose. Points will be deducted if you
+include a hard-coded access key in your solution.</p>
+<p>#```{r set up the api key}</p>
+<p>readRenviron(“../../Documents/R_Environs/api_census.env”) apikey
+&lt;- Sys.getenv(“KEY”) census_api_key(apikey) #```</p>
+<div id="retrieve-the-median-estimated-household-income" class="section level4">
+<h4>Retrieve the median estimated household income</h4>
+<p>We retrieve the median estimated household income for every county in
+the US for 2015 and 2020 based on the American Community Survey.</p>
+<p>#```{r retrieve median estimated household income}</p>
+</div>
+</div>
+</div>
+<div id="median-household-income-2015" class="section level1">
+<h1>Median household income 2015</h1>
+<p>median_household_income_15 &lt;- get_acs(geography = “county”, year =
+2015, variables = “B19013_001”) median_household_income_20 &lt;-
+get_acs(geography = “county”, year = 2020, variables = “B19013_001”)</p>
+<p>#```</p>
+<div id="create-a-table-for-the-ivy-leagues-with-columns-for-the-median-household-income" class="section level4">
+<h4>Create a table for the Ivy Leagues with columns for the median
+household income</h4>
+<p>We create a table “census_df” for the Ivy League universities that
+has four columns:</p>
+<ol style="list-style-type: decimal">
+<li>“Institution”: the name of the Ivy League university</li>
+<li>“County”: the county in which the campus of the university is
+located</li>
+<li>“Year”: the year for which the data has been retrieved (either 2015
+or 2020)</li>
+<li>“Median_Household_Income”: the estimated median household income for
+the County</li>
+</ol>
+<p>The values in column 4 are retrieved from the American Community
+Survey (ACS) in the Census API.</p>
+<p>#```{r create a dataframe census_df}</p>
+</div>
+</div>
+<div id="create-an-empty-dataframe" class="section level1">
+<h1>Create an empty dataframe</h1>
+<p>census_df &lt;- data.frame( Institution = ivyleagues<span class="math inline">\(Institution,  County = ivyleagues\)</span>County,
+stringsAsFactors = FALSE )</p>
+</div>
+<div id="add-the-information-on-the-median-household-income-from-the-census-api-for-2015-and-2020" class="section level1">
+<h1>Add the information on the median household income from the census
+API for 2015 and 2020</h1>
+<p>census_df &lt;- census_df %&gt;%</p>
+<p># For 2015 left_join(select(median_household_income_15, NAME,
+estimate), by = c(“County” = “NAME”)) %&gt;% mutate(“2015” = estimate)
+%&gt;% select(-estimate) %&gt;%</p>
+<p># For 2020 left_join(select(median_household_income_20, NAME,
+estimate), by = c(“County” = “NAME”)) %&gt;% mutate(“2020” = estimate)
+%&gt;% select(-estimate)</p>
+</div>
+<div id="pivot-longer" class="section level1">
+<h1>Pivot longer</h1>
+<p>census_df &lt;- census_df %&gt;% pivot_longer(cols = c(“2015”,
+“2020”), names_to = “Year”, values_to = “Median_Household_Income”)</p>
+</div>
+<div id="set-the-year-column-as-numeric" class="section level1">
+<h1>Set the year column as numeric</h1>
+<p>census_df<span class="math inline">\(Year &lt;-
+as.numeric(census_df\)</span>Year) #```</p>
+<div id="write-it-to-the-database-2" class="section level4">
+<h4>Write it to the database</h4>
+<p>Finally, we can write the “census_df” table to our relational
+database.</p>
+<p>#```{r write the census_df table to the relational database}</p>
+</div>
+</div>
+<div id="write-the-table-to-the-relational-database" class="section level1">
+<h1>Write the table to the relational database</h1>
+<p>dbWriteTable(db, “census_df”, census_df, overwrite = TRUE) #```</p>
+<p>We can test whether the scraping worked properly by using the
+“check_table()” function. It should return a table of 16 rows and 4
+columns, namely “Institution”, “County”, “Year”, and
+“Median_Household_Income”.</p>
+<p>#```{r check the existence of the census_df table, echo=TRUE}</p>
+</div>
+<div id="check-the-existence-of-the-census_df-table" class="section level1">
+<h1>Check the existence of the census_df table</h1>
+<p>check_table(db, “census_df”) #```</p>
+<div id="exercise-5" class="section level2">
+<h2>Exercise 5</h2>
 </div>
 <div id="close-the-stuff-again" class="section level2">
 <h2>Close the stuff again</h2>
-<p>Finally, let us close the driver and browser window before closing
-R:</p>
-<pre><code>## Warning in system(&quot;taskkill /im java.exe /f&quot;, intern = FALSE, ignore.stdout =
-## FALSE): error in running command</code></pre>
 </div>
 <div id="data" class="section level2">
 <h2>Data</h2>
@@ -1129,12 +1089,25 @@ library(DBI)
 library(RSQLite)
 library(RSelenium)
 library(netstat)
+library(httr)
+library(jsonlite)
+library(tidycensus)
+
+#####################################
+# EXERCISE 1
+#####################################
+
 
 # Create database
 db &lt;- dbConnect(RSQLite::SQLite(), &quot;universities_db.sqlite&quot;)
 
 # Check existence of the database
 print(file.exists(&quot;universities_db.sqlite&quot;))
+
+#####################################
+# EXERCISE 2
+#####################################
+
 
 scrape_wikipedia_tables &lt;- function(url) {
   # Input: URL to wikipedia
@@ -1192,7 +1165,7 @@ scrape_wikipedia_tables &lt;- function(url) {
   
   #### Geographic location
 
-  university_data &lt;- list()
+  geographic_data &lt;- list()
 
   for (hyperlink in hyperlinks_list) {
     university_page &lt;- read_html(hyperlink)
@@ -1204,12 +1177,12 @@ scrape_wikipedia_tables &lt;- function(url) {
       unique()
  
     # Store the scraped information in a list
-    university_data &lt;- append(university_data, list(geographic_location))
+    geographic_data &lt;- append(geographic_data, list(geographic_location))
   
   }
 
   # Add a new column &#39;Geographic_Location&#39; with the scraped data
-  empty_tibble$Geographic_Location &lt;- university_data
+  empty_tibble$Geographic_Location &lt;- geographic_data
 
   # Keep the first set of coordinates only
   empty_tibble &lt;- empty_tibble %&gt;%
@@ -1344,23 +1317,27 @@ scrape_wikipedia_tables &lt;- function(url) {
 
 # Run the function using the URL from the Wikipedia page
 url &lt;- &quot;https://en.wikipedia.org/wiki/List_of_research_universities_in_the_United_States&quot;
+scraped_wikipedia_df &lt;- scrape_wikipedia_tables(url)
 
-universities_table &lt;- scrape_wikipedia_tables(url)
-head(universities_table)
+# Save it as a global variable
+assign(&quot;scraped_wikipedia_df&quot;, scraped_wikipedia_df, envir = .GlobalEnv)
 
-# Note that the file &quot;ivyleague.csv&quot; muat be stored in the same folder as this RMarkdown.
-# If the file is stored in a different folder, the code below must be modified by including the correct path of the &quot;ivyleague.csv* file.
+# Save the global variable to an RData file
+save(scraped_wikipedia_df, file = &quot;scraped_wikipedia_df.RData&quot;)
+
+# Load global variables
+load(&quot;scraped_wikipedia_df.RData&quot;)
+
+# Copy the scraped table to avoid modifying the original data
+universities_table &lt;- scraped_wikipedia_df
 
 # Read the CSV file into a data frame
 ivyleagues &lt;- read.csv(&quot;ivyleague.csv&quot;)
 
-# Display the first few rows of the ivyleagues data
-head(ivyleagues)
-
 # Update the full_name column based on conditions
 ivyleagues &lt;- ivyleagues %&gt;%
   mutate(
-    full_name = case_when(
+    Institution = case_when(
       uni_name == &quot;Penn&quot; ~ &quot;University of Pennsylvania&quot;,
       uni_name == &quot;Brown&quot; ~ &quot;Brown University&quot;,
       uni_name == &quot;Columbia&quot; ~ &quot;Columbia University&quot;,
@@ -1372,22 +1349,16 @@ ivyleagues &lt;- ivyleagues %&gt;%
     )
   )
 
+# Clean the ivyleagues table
 ivyleagues &lt;- ivyleagues %&gt;%
   mutate(County = ifelse(!is.na(county), paste(county, state, sep = &quot;, &quot;), state))
 
 universities_table &lt;- universities_table %&gt;%
-  left_join(ivyleagues %&gt;% select(full_name, ein, County), by = c(&quot;Institution&quot; = &quot;full_name&quot;)) %&gt;%
-  mutate(Ivy_League = ifelse(Institution %in% ivyleagues$full_name, 1, 0))
+  left_join(ivyleagues %&gt;% select(Institution, ein, County), by = c(&quot;Institution&quot; = &quot;Institution&quot;)) %&gt;%
+  mutate(Ivy_League = ifelse(Institution %in% ivyleagues$Institution, 1, 0)) %&gt;%
+  rename(EIN = ein)
 
-
-universities_table &lt;- universities_table %&gt;% rename(EIN = ein)
-
-# Filter for the entries that are ivy leagues to check whether the function properly assigned the ivy leagues
-universities_table %&gt;%
-  filter(Ivy_League == 1)
-print(head(universities_table))
-
-# Check if the rows in the dataframe each hold one unique university 
+# Check if the rows in universities_table each hold one unique university 
 if (length(unique(universities_table$Institution)) == length(universities_table$Institution)) {
   answer &lt;- sprintf(&quot;There are %d unique universities in the dataframe &#39;universities&#39; that are each represented by exactly one row. The data is tidy.&quot;, length(unique(universities_table$Institution)))
   print(answer)
@@ -1395,41 +1366,58 @@ if (length(unique(universities_table$Institution)) == length(universities_table$
   print(&quot;Not every row holds the data of a unique university. The data is not tidy.&quot;)
 }
 
-# Check if each column corresponds to one of the 11 variables
-summary(universities_table)
+# Check if the columns in universities_table each represent one of the 11 variables
+if (ncol(universities_table) == 11) {
+  column_names &lt;- colnames(universities_table)
+  column_answer &lt;- sprintf(&quot;The dataframe has %d columns:&quot;, ncol(universities_table))
+  formatted_names &lt;- sprintf(&quot;Column %d: %s&quot;, 
+                             seq_along(column_names), 
+                             column_names)
+  cat(column_answer, formatted_names, sep = &quot;\n&quot;)
+} else {
+  print(&quot;The dataframe does not have 11 columns. It is not tidy.&quot;)
+}
 
-# Adding the table to the relational database
-# Only include overwrite = TRUE for practicing purpose
-dbWriteTable(db, &quot;universities&quot;, universities_table, overwrite = TRUE)
+# Write universities_table to the relational database
+dbWriteTable(db, &quot;universities_df&quot;, universities_table, overwrite = TRUE)
 
 # Testing that it worked with a simple query
-dbGetQuery(db, &quot;SELECT * FROM universities LIMIT 8&quot;)
+#dbGetQuery(db, &quot;SELECT * FROM universities LIMIT 8&quot;)
+
+# Check_table is a function that checks the existence and dimensionality of a table in db
 check_table &lt;- function(db, a_table){
   
   # Check if the &quot;universities&quot; table exists
   if (a_table %in% dbListTables(db)) {
-    # Execute an SQL query to get the row count
+    
+    # Get the row count
     query &lt;- paste(&quot;SELECT COUNT(*) FROM&quot;, a_table)
     row_count &lt;- dbGetQuery(db, query)[1, 1]
   
     # Get the column names
-    column_names &lt;- list(dbListFields(db, a_table))
+    column_names &lt;- as.character(dbListFields(db, a_table))
   
     # Get the column count
     column_count &lt;- length(unlist(column_names))
-  
-    # Format the string
-    formatted_string &lt;- sprintf(&quot;The table exists and has the following dimensions: \nNumber of rows: %s \nNumber of columns: %s \nColumn names: %s&quot;, row_count, column_count, paste(column_names, collapse = &quot;, &quot;))
-  
-    # Return the row and column counts
-    return(cat(formatted_string))
+    
+    # Print out dimensions and column names
+    formatted_string &lt;- sprintf(&quot;The table exists and has the following dimensions: \nNumber of rows: %s \nNumber of columns: %s&quot;, row_count, column_count)
+    column_answer &lt;- sprintf(&quot;Column names: %s&quot;, paste(column_names, collapse = &quot;, &quot;))
+    
+    return(cat(formatted_string, column_answer, sep = &quot;\n&quot;))
     
   } else {
     return(cat(&quot;The table does not exist.&quot;))
   }
 }
 
-check_table(db, &quot;universities&quot;)
+# Call check_table on &quot;universities_df&quot;
+check_table(db, &quot;universities_df&quot;)
+
+#####################################
+# EXERCISE 3
+#####################################
+
 
 # Launch the driver and browser
 invisible(capture.output({
@@ -1488,21 +1476,18 @@ extract_year &lt;- function() {
 
 # Create a dataframe that holds all ivy league universities as displayed in the ivyleagues data
 ivyleagues_df &lt;- data.frame(
-  Institution = ivyleagues$full_name,
+  Institution = ivyleagues$Institution,
   # Add an empty column for the year 
-  Year = numeric(length(ivyleagues$full_name)),
+  Year = numeric(length(ivyleagues$Institution)),
   # Add an empty column for the Rank
-  Rank = numeric(length(ivyleagues$full_name)),
+  Rank = numeric(length(ivyleagues$Institution)),
   stringsAsFactors = FALSE
 )
 
-# Create three copies of the ivyleagues_df data frame for each of the three years that we will later scrape ranking data fro
+# Create three copies of the ivyleagues_df data frame for each of the three years that we will later scrape ranking data from
 ivyleagues_03 &lt;- ivyleagues_df
 ivyleagues_13 &lt;- ivyleagues_df
 ivyleagues_23 &lt;- ivyleagues_df
-
-# Display the ivy league dataframes for the three years
-print(ivyleagues_03)
 
 # Scrape the rank for each ivy league university from the website for the years 2003, 2013, 2023
 
@@ -1588,15 +1573,26 @@ scrape_university_ranking_global &lt;- function() {
   }
   
   # Creating a list of data frames
-  ivyleagues_ranks &lt;- rbind(ivyleagues_03, ivyleagues_13, ivyleagues_23)
+  scraped_ivyleagues_df &lt;- rbind(ivyleagues_03, ivyleagues_13, ivyleagues_23)
 
-  return(ivyleagues_ranks)
+  return(scraped_ivyleagues_df)
 
 }
 
-
 # Call the global rank scraping function
-ivyleagues_ranks &lt;- scrape_university_ranking_global()
+scraped_ivyleagues_df &lt;- scrape_university_ranking_global()
+
+# Save it as a global variable
+assign(&quot;scraped_ivyleagues_df&quot;, scraped_ivyleagues_df, envir = .GlobalEnv)
+
+# Save the global variable to an RData file
+save(scraped_ivyleagues_df, file = &quot;scraped_ivyleagues_df.RData&quot;)
+
+# Load global variables
+load(&quot;scraped_ivyleagues_df.RData&quot;)
+
+# Copy the scraped table to avoid modifying the original data
+ivyleagues_ranks &lt;- scraped_ivyleagues_df
 
 # Function to calculate midpoint from a range
 calculate_midpoint &lt;- function(rank) {
@@ -1611,10 +1607,6 @@ ivyleagues_ranks$Rank &lt;- sapply(ivyleagues_ranks$Rank, calculate_midpoint)
 # Adding the table to the relational database
 # Only include overwrite = TRUE for practicing purpose
 dbWriteTable(db, &quot;ivyleagues_ranks&quot;, ivyleagues_ranks, overwrite = TRUE)
-
-# Testing that it worked with a simple query
-dbGetQuery(db, &quot;SELECT * FROM ivyleagues_ranks LIMIT 8&quot;)
-
 
 # Check the existence of the ivyleagues_ranks table
 check_table(db, &quot;ivyleagues_ranks&quot;)
@@ -1672,11 +1664,14 @@ filter_social_sciences &lt;- function() {
   social_sciences_element$clickElement()
   
 }
+
+# Create a df that will later hold the rankings for the social sciences
 social_science_ranks &lt;- data.frame(Institution = character(),
                           Subject = character(),
                           Number = character(),
                           stringsAsFactors = FALSE)
 
+# A function that extracts the social science rankings and appends them to the data frame &quot;social_science_ranks&quot;
 extract_social_science_rank &lt;- function(institution_name, existing_table) {
   
   # entire table with ranks
@@ -1695,8 +1690,6 @@ extract_social_science_rank &lt;- function(institution_name, existing_table) {
   return(existing_table)
 }
 
-
-# Potentially need another code here depending on where we end up when we run the entire markdown
 
 navigate_universities()
 Sys.sleep(2)  
@@ -1851,68 +1844,99 @@ Sys.sleep(2)
 navigate_universities()
 Sys.sleep(2)
 
+# Save it as a global variable
+assign(&quot;social_science_ranks&quot;, social_science_ranks, envir = .GlobalEnv)
 
+# Save the global variable to an RData file
+save(social_science_ranks, file = &quot;social_science_ranks.RData&quot;)
 
+# Load global variables
+load(&quot;social_science_ranks.RData&quot;)
 
-
-
-
-
-
-######################################################################
-## Potentially: with a loop?
-# Loop through all ivy league universities in the ivyleagues dataset and call the search_for function for each university
-
-#navigate_universities()
-#Sys.sleep(2) 
-
-#for (i in seq_along(ivyleagues$full_name)) {
-  
-  # Search for the university
-#  search_general_ranking(ivyleagues$full_name[i])
-  
-  # Add a delay to allow the page to load before the next search
-#  Sys.sleep(2)  
-  
-  # Filter for the social sciences
-#  filter_social_sciences()
-  
-  # Extract the social science ranks
-#  social_science_ranks &lt;- extract_social_science_rank(ivyleagues$full_name[i], social_science_ranks) 
-#  Sys.sleep(2)  
-
-  # Navigate back to all universities
-#  navigate_universities()
-#  Sys.sleep(2)  
-#}
-
-
+# Copy the scraped table to avoid modifying the original data
+social_science_ranks_df &lt;- social_science_ranks
 
 # Calculate the midpoint for the social science rankings that were displayed as a range
-social_science_ranks$Number &lt;- sapply(social_science_ranks$Number, calculate_midpoint)
+social_science_ranks_df$Number &lt;- sapply(social_science_ranks_df$Number, calculate_midpoint)
 
 # Adding the table to the relational database
 # Only include overwrite = TRUE for practicing purpose
-dbWriteTable(db, &quot;social_science_ranks&quot;, social_science_ranks, overwrite = TRUE)
-
-# Testing that it worked with a simple query
-#dbGetQuery(db, &quot;SELECT * FROM social_science_ranks LIMIT 20&quot;)
-
+dbWriteTable(db, &quot;social_science_ranks_df&quot;, social_science_ranks_df, overwrite = TRUE)
 
 # Check the existence of the social_science_ranks table
-check_table(db, &quot;social_science_ranks&quot;)
+check_table(db, &quot;social_science_ranks_df&quot;)
 
-# Navigate to the home page to make it easier to keep working on this website
-home_page &lt;- driver$findElement(using = &quot;xpath&quot;, value = &#39;/html/body/div/div/div/div[1]/div[1]/div/div[2]/ul/li[1]/a&#39;)
-  
-# Click on the element
-home_page$clickElement()
-# close the RSelenium processes:
+# Close the RSelenium processes:
 driver$close()
-# close the associated Java processes (if using Mac or Linux this may not be necessary -- Google for correct command)
+# Close the associated Java processes
 system(&quot;taskkill /im java.exe /f&quot;, intern=FALSE, ignore.stdout=FALSE)
+
+# Create an empty dataframe for the financial information
+finance_df &lt;- data.frame(
+  Institution = NA,
+  # Add a column for the EIN
+  ein = NA,
+  # Add an empty column for the year
+  year = NA,
+  # Add an empty column for the total revenue
+  total_revenue = NA,
+  # Add an empty column for the total assets
+  total_assets = NA,
+  stringsAsFactors = FALSE
+)
+
+# Function that gets the university name given the ein
+get_university_name &lt;- function(ein) {
+  # Look for the ein in the dataframe  
+  matching_row &lt;- ivyleagues[ivyleagues$ein == ein, ]
+  # Check if a match is found
+  if (nrow(matching_row) &gt; 0) {
+    # Return the corresponding university name
+    return(matching_row$full_name)
+  } else {
+    # Return a message indicating no match found
+    return(&quot;University not found&quot;)
+  }
+}
+
+# name &lt;- get_university_name(231352685)
+
+# Function that queries the API for each university&#39;s data given their ein
+get_data &lt;- function(ein) {
+  # Create a url given the ein
+  url &lt;- paste0(&quot;https://projects.propublica.org/nonprofits/api/v2/organizations/&quot;, ein, &quot;.json&quot;)
+  response &lt;- GET(url)
+  api_data &lt;- content(response, &quot;parsed&quot;)
+  
+  return(api_data)
+}
+
+# dt &lt;- get_data(231352685)
+
+# function that gets the finance data given the ein and using the functions get_university_name and get_data
+get_finance_data &lt;- function(ein) {
+  # Get the university name given the ein
+  name &lt;- get_university_name(ein)
+  
+  # Get the data given the ein
+  dt &lt;- get_data(ein)
+  
+  # Loop to append values
+  for (i in seq(length(dt$filings_with_data))) {
+    # Append the values to the dataframe
+    finance_df &lt;- rbind(finance_df, data.frame(Institution = name,
+                                               ein = ein,
+                                               year = dt$filings_with_data[[i]]$tax_prd_yr,
+                                               total_assets = dt$filings_with_data[[i]]$totassetsend,
+                                               total_revenue = dt$filings_with_data[[i]]$totrevenue))
+  }
+
+  # Return the resulting dataframe
+  return(finance_df)
+}
 # Close the database connection
 dbDisconnect(db)</code></pre>
+</div>
 </div>
 <div class="footnotes footnotes-end-of-document">
 <hr />

@@ -312,11 +312,28 @@ scrape_wikipedia_tables <- function(url) {
   # Finally, return the table including the scraped information
   return(empty_tibble)
 }
+```
+
+```{r call the scrape_wikipedia_tables() webscraper,  eval = FALSE}
 
 # Run the function using the URL from the Wikipedia page
 url <- "https://en.wikipedia.org/wiki/List_of_research_universities_in_the_United_States"
+scraped_wikipedia_df <- scrape_wikipedia_tables(url)
 
-universities_table <- scrape_wikipedia_tables(url)
+# Save it as a global variable
+assign("scraped_wikipedia_df", scraped_wikipedia_df, envir = .GlobalEnv)
+
+# Save the global variable to an RData file
+save(scraped_wikipedia_df, file = "scraped_wikipedia_df.RData")
+```
+
+```{r create a copy of scraped_wikipedia_universities}
+
+# Load global variables
+load("scraped_wikipedia_df.RData")
+
+# Copy the scraped table to avoid modifying the original data
+universities_table <- scraped_wikipedia_df
 ```
 
 #### Notes on the function
@@ -432,7 +449,7 @@ We write "universities_table" to the relational database "db" under the name "un
 ```{r write universities_table to the relational database}
 
 # Write universities_table to the relational database
-dbWriteTable(db, "universities", universities_table, overwrite = TRUE)
+dbWriteTable(db, "universities_df", universities_table, overwrite = TRUE)
 
 # Testing that it worked with a simple query
 #dbGetQuery(db, "SELECT * FROM universities LIMIT 8")
@@ -469,8 +486,8 @@ check_table <- function(db, a_table){
   }
 }
 
-# Call check_table on "universities"
-check_table(db, "universities")
+# Call check_table on "universities_df"
+check_table(db, "universities_df")
 ```
 
 
@@ -501,7 +518,7 @@ Your final table should be in tidy long format, where each row uniquely identifi
 
 In a first step, we will launch the driver and the browser. Note that we use chromenever = NULL to avoid launching chrome as chrome browsers have shown to be buggy and we prefer using firefox instead.
 
-```{r launch the browser, results='hide', message=FALSE}
+```{r launch the browser, results='hide', message=FALSE, eval=FALSE}
 
 # Launch the driver and browser
 invisible(capture.output({
@@ -512,7 +529,7 @@ invisible(capture.output({
 
 When the browser has been launched, we can navigate to the [Academic Ranking of World Universities Website](https://www.shanghairanking.com/) using the URL provided in the task.
 
-```{r navigate to the website}
+```{r navigate to the website, eval=FALSE}
 
 # Navigate to the website
 url <- "https://www.shanghairanking.com/"
@@ -601,11 +618,11 @@ Before putting everything together in one scraping function, we will temporarily
 
 # Create a dataframe that holds all ivy league universities as displayed in the ivyleagues data
 ivyleagues_df <- data.frame(
-  Institution = ivyleagues$full_name,
+  Institution = ivyleagues$Institution,
   # Add an empty column for the year 
-  Year = numeric(length(ivyleagues$full_name)),
+  Year = numeric(length(ivyleagues$Institution)),
   # Add an empty column for the Rank
-  Rank = numeric(length(ivyleagues$full_name)),
+  Rank = numeric(length(ivyleagues$Institution)),
   stringsAsFactors = FALSE
 )
 
@@ -708,23 +725,38 @@ scrape_university_ranking_global <- function() {
   }
   
   # Creating a list of data frames
-  ivyleagues_ranks <- rbind(ivyleagues_03, ivyleagues_13, ivyleagues_23)
+  scraped_ivyleagues_df <- rbind(ivyleagues_03, ivyleagues_13, ivyleagues_23)
 
-  return(ivyleagues_ranks)
+  return(scraped_ivyleagues_df)
 
 }
-
-`````
+```
 
 
 #### Call the ARWU ranking webscraper
 
 Now, we will call the function "scrape_university_ranking_global() to scrape the global ranking for the years 2003, 2013, and 2023. The function returns a dataframe, which we will assign to the name "ivyleagues_ranks".
 
-```{r call the global rank scraping function, echo=TRUE}
+
+```{r call the scrape_university_ranking_global() webscraper, eval = FALSE}
 
 # Call the global rank scraping function
-ivyleagues_ranks <- scrape_university_ranking_global()
+scraped_ivyleagues_df <- scrape_university_ranking_global()
+
+# Save it as a global variable
+assign("scraped_ivyleagues_df", scraped_ivyleagues_df, envir = .GlobalEnv)
+
+# Save the global variable to an RData file
+save(scraped_ivyleagues_df, file = "scraped_ivyleagues_df.RData")
+```
+
+```{r create a copy of scraped_ivyleagues_df}
+
+# Load global variables
+load("scraped_ivyleagues_df.RData")
+
+# Copy the scraped table to avoid modifying the original data
+ivyleagues_ranks <- scraped_ivyleagues_df
 ```
 
 
@@ -753,10 +785,6 @@ Finally, we can write the table to our relational database.
 # Adding the table to the relational database
 # Only include overwrite = TRUE for practicing purpose
 dbWriteTable(db, "ivyleagues_ranks", ivyleagues_ranks, overwrite = TRUE)
-
-# Testing that it worked with a simple query
-#dbGetQuery(db, "SELECT * FROM ivyleagues_ranks LIMIT 8")
-
 ```
 
 
@@ -773,7 +801,7 @@ check_table(db, "ivyleagues_ranks")
 
 Before going over to the next exercise, we will navigate back to the home page of the website to prevent errors while scraping information from a different place within the website.
 
-```{r navigate to the home page}
+```{r navigate to the home page, eval=FALSE}
 
 # Navigate to the home page to make it easier to keep working on this website
 home_page <- driver$findElement(using = "xpath", value = '/html/body/div/div/div/div[1]/div[1]/div/div[2]/ul/li[1]/a')
@@ -809,6 +837,9 @@ navigate_universities <- function() {
   universities_ranks <- driver$findElement(using = "xpath", value = '/html/body/div/div/div/div[1]/div[1]/div/div[2]/ul/li[3]')
   universities_ranks$clickElement()
 }
+```
+
+```{r navigate to the page with the subject rankings, eval=FALSE}
 
 navigate_universities()
 ```
@@ -874,12 +905,15 @@ filter_social_sciences <- function() {
 
 Lastly, we need a function that extracts the ranks of all social sciences for the individual universities. Before defining the function, we create an empty table "social_science_ranks" that has three columns: "Institution", "Subject", and "Number". The function "extract_social_science_rank" takes the university name and the "social_science_ranks" table as an input arguments and appends the scraped ranks to the table. It returns the social_science_ranks table including the scraped data for the university that was the input argument. Note that when executing the function several times, it will continue to append the new data to the same table instead of overwriting previously extracted data.
 
-```{r}
+```{r extract the social science ranks}
+
+# Create a df that will later hold the rankings for the social sciences
 social_science_ranks <- data.frame(Institution = character(),
                           Subject = character(),
                           Number = character(),
                           stringsAsFactors = FALSE)
 
+# A function that extracts the social science rankings and appends them to the data frame "social_science_ranks"
 extract_social_science_rank <- function(institution_name, existing_table) {
   
   # entire table with ranks
@@ -905,9 +939,7 @@ extract_social_science_rank <- function(institution_name, existing_table) {
 
 Now, we can use the previously defined functions to scrape the social science rankings for all ivyleagues.
 
-```{r scrape social science rankings}
-
-# Potentially need another code here depending on where we end up when we run the entire markdown
+```{r scrape social science rankings, eval=FALSE}
 
 navigate_universities()
 Sys.sleep(2)  
@@ -1062,42 +1094,20 @@ Sys.sleep(2)
 navigate_universities()
 Sys.sleep(2)
 
+# Save it as a global variable
+assign("social_science_ranks", social_science_ranks, envir = .GlobalEnv)
 
+# Save the global variable to an RData file
+save(social_science_ranks, file = "social_science_ranks.RData")
+```
 
+```{r create a copy of social_science_ranks}
 
+# Load global variables
+load("social_science_ranks.RData")
 
-
-
-
-
-######################################################################
-## Potentially: with a loop?
-# Loop through all ivy league universities in the ivyleagues dataset and call the search_for function for each university
-
-#navigate_universities()
-#Sys.sleep(2) 
-
-#for (i in seq_along(ivyleagues$full_name)) {
-  
-  # Search for the university
-#  search_general_ranking(ivyleagues$full_name[i])
-  
-  # Add a delay to allow the page to load before the next search
-#  Sys.sleep(2)  
-  
-  # Filter for the social sciences
-#  filter_social_sciences()
-  
-  # Extract the social science ranks
-#  social_science_ranks <- extract_social_science_rank(ivyleagues$full_name[i], social_science_ranks) 
-#  Sys.sleep(2)  
-
-  # Navigate back to all universities
-#  navigate_universities()
-#  Sys.sleep(2)  
-#}
-
-
+# Copy the scraped table to avoid modifying the original data
+social_science_ranks_df <- social_science_ranks
 ```
 
 
@@ -1106,10 +1116,10 @@ Sys.sleep(2)
 
 Using the "calculate_midpoint()" function, we get the midpoint for the observations that reported a range for a specific ranking.
 
-```{r calculate the midpoint for social science ranks}
+```{r calculate the midpoint for the ranks in social_science_ranks_df}
 
 # Calculate the midpoint for the social science rankings that were displayed as a range
-social_science_ranks$Number <- sapply(social_science_ranks$Number, calculate_midpoint)
+social_science_ranks_df$Number <- sapply(social_science_ranks_df$Number, calculate_midpoint)
 ```
 
 
@@ -1117,46 +1127,28 @@ social_science_ranks$Number <- sapply(social_science_ranks$Number, calculate_mid
 
 Finally, we can write the table to our relational database.
 
-```{r write the social_science_ranks table to the relational database}
+```{r write the social_science_ranks_df table to the relational database}
 
 # Adding the table to the relational database
 # Only include overwrite = TRUE for practicing purpose
-dbWriteTable(db, "social_science_ranks", social_science_ranks, overwrite = TRUE)
-
-# Testing that it worked with a simple query
-#dbGetQuery(db, "SELECT * FROM social_science_ranks LIMIT 20")
-
+dbWriteTable(db, "social_science_ranks_df", social_science_ranks_df, overwrite = TRUE)
 ```
 
 We can test whether the scraping worked properly by using the "check_table()" function. It should return a table of 86 rows and 3 columns, namely "Institution", "Subject", and "Number".
 
-```{r check the existence of the social_science_ranks table, echo=TRUE}
+```{r check the existence of the social_science_ranks_df table, echo=TRUE}
 
 # Check the existence of the social_science_ranks table
-check_table(db, "social_science_ranks")
+check_table(db, "social_science_ranks_df")
 ```
 
-#### Navigate back to the homepage
+```{r close the RSelenium process, eval=FALSE}
 
-Lastly, we navigate back to the homepage.
-
-QUESTION: maybe we can already close the driver here no?
-
-```{r navigate to home page}
-
-# Navigate to the home page to make it easier to keep working on this website
-home_page <- driver$findElement(using = "xpath", value = '/html/body/div/div/div/div[1]/div[1]/div/div[2]/ul/li[1]/a')
-  
-# Click on the element
-home_page$clickElement()
+# Close the RSelenium processes:
+driver$close()
+# Close the associated Java processes
+system("taskkill /im java.exe /f", intern=FALSE, ignore.stdout=FALSE)
 ```
-
-
-
-
-
-
-
 
 
 
@@ -1292,18 +1284,18 @@ get_finance_data <- function(ein) {
 
 Now, we can use lapply() to execute get_finance_data() on all observations in the ivyleagues dataframe using the ein column.
 
-```{r call the get_finance_data() function, echo=TRUE}
+#```{r call the get_finance_data() function, echo=TRUE}
 
 # Call the "get_finance_data()" function
 result_list <- lapply(ivyleagues$ein, get_finance_data)
 finance_df <- do.call(rbind, result_list)
-```
+#```
 
 #### Format the finance_df
 
 As previously mentioned, the finance_df that we retrieved needs to be modified before writing it to the database. Not for all universities the data on the revenue and assets is available for each year from 2010 to 2020 (inclusive). Secondly, due to the nature of our function and the structure of the API's data, we have also extracted data for years that we are not interested in. We will delete these rows and create rows with missing values for observations of years of interest that are missing.
 
-```{r format the finance_df}
+#```{r format the finance_df}
 
 # Filter for observations of the years 2010-2020
 finance_df <- finance_df %>%
@@ -1326,7 +1318,7 @@ finance_df <- complete_df %>%
 
 finance_df <- finance_df %>%
   select(-Institution.y, Institution = Institution.x)
-```
+#```
 
 **Note**: The final dataframe has missing values. For instance, the data for total assets and total revenue of Harvard University is unavailable for the years 2010 and 2020.
 
@@ -1335,25 +1327,21 @@ finance_df <- finance_df %>%
 
 Finally, we can write the table to our relational database.
 
-```{r write the finance_df table to the relational database}
+#```{r write the finance_df table to the relational database}
 
 # Adding the table to the relational database
 # Only include overwrite = TRUE for practicing purpose
 dbWriteTable(db, "finance_df", finance_df, overwrite = TRUE)
-
-# Testing that it worked with a simple query
-#dbGetQuery(db, "SELECT * FROM finance_df LIMIT 18")
-
-```
+#```
 
 
 We can test whether the scraping worked properly by using the “check_table()” function. It should return a table of 88 rows and 5 columns, namely "year", "ein", "Institution", "total_revenue", and "total_assets".
 
-```{r check the existence of the finance_df table, echo=TRUE}
+#```{r check the existence of the finance_df table, echo=TRUE}
 
 # Check the existence of the ivyleagues_ranks table
 check_table(db, "finance_df")
-```
+#```
 
 
 
@@ -1368,24 +1356,24 @@ Format the final table in a tidy long format, where each row is a unique combina
 *Note*: To access the US Census Bureau API (via `tidycensus` or otherwise) you must create a unique access key; details of this process can be found [here](https://api.census.gov/data/key_signup.html). Remember to store your key securely and privately -- `tidycensus` has a built in function for this purpose. Points will be deducted if you include a hard-coded access key in your solution. 
 
 
-```{r set up the api key}
+#```{r set up the api key}
 
 readRenviron("../../Documents/R_Environs/api_census.env")
 apikey <- Sys.getenv("KEY")
 census_api_key(apikey)
-```
+#```
 
 #### Retrieve the median estimated household income
 
 We retrieve the median estimated household income for every county in the US for 2015 and 2020 based on the American Community Survey. 
 
-```{r retrieve median estimated household income}
+#```{r retrieve median estimated household income}
 
 # Median household income 2015
 median_household_income_15 <- get_acs(geography = "county", year = 2015, variables = "B19013_001")
 median_household_income_20 <- get_acs(geography = "county", year = 2020, variables = "B19013_001")
 
-```
+#```
 
 
 #### Create a table for the Ivy Leagues with columns for the median household income 
@@ -1399,7 +1387,7 @@ We create a table "census_df" for the Ivy League universities that has four colu
 
 The values in column 4 are retrieved from the American Community Survey (ACS) in the Census API.
 
-```{r create a dataframe census_df}
+#```{r create a dataframe census_df}
 
 # Create an empty dataframe
 census_df <- data.frame(
@@ -1429,43 +1417,33 @@ census_df <- census_df %>%
 
 # Set the year column as numeric
 census_df$Year <- as.numeric(census_df$Year)
-``` 
+#``` 
 
 
 #### Write it to the database
 
 Finally, we can write the "census_df" table to our relational database.
 
-```{r write the census_df table to the relational database}
+#```{r write the census_df table to the relational database}
 
 # Write the table to the relational database
 dbWriteTable(db, "census_df", census_df, overwrite = TRUE)
-```
+#```
 
 
 We can test whether the scraping worked properly by using the “check_table()” function. It should return a table of 16 rows and 4 columns, namely "Institution", "County", "Year", and "Median_Household_Income".
 
-```{r check the existence of the census_df table, echo=TRUE}
+#```{r check the existence of the census_df table, echo=TRUE}
 
 # Check the existence of the census_df table
 check_table(db, "census_df")
-```
+#```
 
 
 
 ## Exercise 5
 
 ## Close the stuff again
-
-
-Finally, let us close the driver and browser window before closing R:
-
-```{r}
-# close the RSelenium processes:
-driver$close()
-# close the associated Java processes (if using Mac or Linux this may not be necessary -- Google for correct command)
-system("taskkill /im java.exe /f", intern=FALSE, ignore.stdout=FALSE)
-```
 
 
 ```{r}
