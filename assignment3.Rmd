@@ -26,6 +26,12 @@ library(netstat)
 library(httr)
 library(jsonlite)
 library(tidycensus)
+library(tigris)
+library(stringr)
+library(tmap)
+#library(ggmap)
+library(sf)
+
 ```
 
 
@@ -1500,17 +1506,26 @@ vi. The average of the median household income for the County across the years 2
 
 #### Analysis table
 
+The code for the analysis table can be found in the Appendix.
+
+```{r get the list of table in db}
+
+# Get a list of tables in the database
+tables <- dbListTables(db)
+
+# Print the list of tables
+cat("Tables in the database:", paste(tables, collapse = ", "), "\n")
+```
+
 ```{r}
 # Testing that it works with a simple query
 dbListFields(db, "census_df")
 ```
 
 
+```{r sql queries for the analysis table}
 
-##### Second query: The average rank of the university across 2003, 2013, and 2023
-
-```{r query for average rank of Ivy Leagues}
-# Write the SQL query
+# Second column: The average rank of the university across 2003, 2013, and 2023
 second_query <- "
   SELECT Institution, AVG(Rank) AS Average_Rank
   FROM ivyleagues_ranks
@@ -1521,17 +1536,8 @@ second_query <- "
 # Execute the query
 second_result <- dbGetQuery(db, second_query)
 
-# View the result
-print(second_result)
-```
 
-
-
-##### Third query: The average rank of the university's Economics, Political Science, and Sociology programs, if they were ranked
-
-```{r query for average rank of Economics, Political Sicences, and Sociology programs}
-
-# Write the SQL query
+# Third column: The average rank of the university's Economics, Political Science, and Sociology programs, if they were ranked
 third_query <- "
   SELECT Institution, AVG(Number) AS Avg_Econ_PolSc_Soc
   FROM social_science_ranks_df
@@ -1542,15 +1548,8 @@ third_query <- "
 # Execute the query
 third_result <- dbGetQuery(db, third_query)
 
-# View the result
-print(third_result)
-```
 
-##### Fourth query: The current endowment per student (total endowment divided by total number of students), in USD
-
-```{r query for endowment per student}
-
-# Write the SQL query
+# Fourth column: The current endowment per student (total endowment divided by total number of students), in USD
 fourth_query <- "
   SELECT Institution, Endowment / Students AS Endowment_Per_Student
   FROM universities_df
@@ -1560,14 +1559,8 @@ fourth_query <- "
 # Execute the query
 fourth_result <- dbGetQuery(db, fourth_query)
 
-print(fourth_result)
-```
 
-##### Fifth query: The average total revenue per student across the years 2015 - 2020, in USD
-
-```{r average total revenue per student across 2015-2020 in USD}
-
-# Write the SQL query
+# Fifth column: The average total revenue per student across the years 2015 - 2020, in USD
 fifth_query_students <- "
   SELECT Institution, Students
   FROM universities_df
@@ -1590,39 +1583,23 @@ fifth_result <- merge(fifth_result_students, fifth_result_revenue,
   mutate(Rev_Per_Student_2015_2020 = Avg_Revenue_2015_2020 / Students) %>%
   select(Institution, Rev_Per_Student_2015_2020)
 
-# View the result
-print(fifth_result)
-```
 
-
-##### Sixth query: The average of the median household income for the County across the years 2015 and 2020, in USD
-
-```{r average median household income for the County across 2015-2020 in USD}
-
-# Write the SQL query
-
+# Sixth column: The average of the median household income for the County across the years 2015 and 2020, in USD
 sixth_query <- "
   SELECT Institution, AVG(Median_Household_Income) AS Avg_Household_Income_2015_2020
   FROM census_df
-  WHERE year BETWEEN 2015 AND 2020
+  WHERE year IN (2015, 2020)
   GROUP BY Institution;
 "
 
 # Execute the queries
 sixth_result <- dbGetQuery(db, sixth_query)
-
-
-# View the result
-print(sixth_result)
 ```
 
 
-
-##### Combine everything
-
 ```{r combine the tables resulting from the six queries}
 
-# Merge the five dataframes retrieved throgh the sql queries by Institution
+# Merge the five dataframes retrieved through the sql queries by Institution
 list_of_dataframes <- list(second_result, third_result, fourth_result, fifth_result, sixth_result)
 analysis_df <- reduce(list_of_dataframes, merge, by = "Institution", all = TRUE)
 ```
@@ -1642,15 +1619,18 @@ Comment on the relationships you find. Are any of them particularly interesting?
 
 
 
-i. average university ranking and average Econ/PS/Soc ranking
+##### 1. Average university ranking vs. average Econ/PS/Soc ranking
 
-```{r}
+```{r first plot average university ranking and average Econ/PS/Soc ranking, message = FALSE}
 
+# First ggplot: average university ranking and average Econ/PS/Soc ranking
 first_plot <- ggplot(analysis_df, aes(x = Average_Rank, y = Avg_Econ_PolSc_Soc, color = factor(Institution))) +
   geom_point(size = 1.5) +
+  # Add a regression line
+  stat_smooth(method = "lm", se = TRUE, color = "#FEE000") +
   geom_text(aes(label = Institution), hjust = -0.005, vjust = -0.7, size = 2, color = "black") +  # Add labels
-  labs(title = "Average Overall Ranking vs Subject Ranking for Ivy League Universities, 2015-2020",
-       x = "Average Overall Ranking",
+  labs(title = "Average Overall Ranking vs. Subject Ranking for Ivy League Universities",
+       x = "Average Overall Ranking (2003, 2013, 2023)",
        y = "Average Ranking for Economics, Political Sciences, and Sociology",
        color = "Ivy League University") +
   theme_minimal() +
@@ -1661,35 +1641,292 @@ first_plot <- ggplot(analysis_df, aes(x = Average_Rank, y = Avg_Econ_PolSc_Soc, 
     plot.title = element_text(size = 12)
   ) +
   # Use a logarithmic scale for the x-axis
-  scale_x_log10(limits = c(1, 550), expand = c(0.02, 0)) +  # Adjust the limits and expand
-  scale_y_log10(limits = c(1, 100), expand = c(0.02, 0))
+  scale_x_log10(limits = c(1, 750), expand = c(0.02, 0)) +  # Adjust the limits and expand
+  scale_y_log10(limits = c(1, 200), expand = c(0.02, 0))
 
-
+# Display the first plot
 first_plot
 ```
 
+**The plot**: Comment on the logarithmic scale of the axes.
 
+**The findings**: There seems to be a positive correlation between the overall ranking and the average ranking for the subjects Economics, Political Sciences, and Sociology, which is not surprising. A university that is ranked highly overall is expected to have high rankings in most subjects as well. It should be noted, though, that the overall ranking displayed on the x-axis is averaged over the years 2003, 2013, and 2023, whilst the average subject ranking displayed on the y-axis only refers to the most recent rankings in the subjects Economics, Political Sciences, and Sociology. Thereby, the possibility that the overall ranking changed significantly since 2003 and thus influenced the overall ranking (either positively or negatively) must thereby be considered. It would probably be more informative to retrieve the subject rankings for the three years of interest and then calculate the average.
 
+```{r R squared for the first plot}
 
+# Fit a linear regression model
+model1 <- lm(Avg_Econ_PolSc_Soc ~ Average_Rank, data = analysis_df)
 
-
-
-
-
-
-
-
-
-
-
-```{r get the list of table in db}
-
-# Get a list of tables in the database
-tables <- dbListTables(db)
-
-# Print the list of tables
-cat("Tables in the database:", paste(tables, collapse = ", "), "\n")
+# View the R-squared value
+rsquared_value_1 <- summary(model1)$r.squared
+cat("R-squared Plot 1:", rsquared_value_1, "\n")
 ```
+
+
+##### 2. Average university ranking vs. endowment per student
+
+```{r second plot average university ranking and endowment per student, message = FALSE}
+
+# Second ggplot: average university ranking and endowment per student
+second_plot <- ggplot(analysis_df, aes(x = Average_Rank, y = Endowment_Per_Student/1000, color = factor(Institution))) +
+  geom_point(size = 1.5) +
+  # Add a regression line
+  stat_smooth(method = "lm", se = TRUE, color = "#FEE000") +
+  geom_text(aes(label = Institution), hjust = -0.005, vjust = -0.7, size = 2, color = "black") +  # Add labels
+  labs(title = "Average Overall Ranking vs. Endowment Per Student",
+       x = "Average University Ranking (2003, 2013, 2023)",
+       y = "Endowment per Student, in thousand USD",
+       color = "Ivy League University") +
+  theme_minimal() +
+  theme(
+    # Adjust the font size for the title and the axes
+    axis.text = element_text(size = 10),     
+    axis.title = element_text(size = 10),    
+    plot.title = element_text(size = 12)
+  ) +
+  # Use a logarithmic scale for the x-axis
+  scale_x_log10(limits = c(1, 750), expand = c(0.02, 0)) +
+  scale_y_log10(limits = c(100, 7500), expand = c(0.02, 0))
+
+# Display the second plot
+second_plot
+```
+
+**The plot**: Comment on the logarithmic scale of the axes.
+
+**The findings**: The findings are somewhat surprising. One might expect universities with high rankings to have larger endowments per students as they firstly might be able to charge higher student fees due to their good reputation and secondly might be ranked so highly due to the availability of large resources that they can invest in the facilities and the quality of teaching. However, this expectation is flawed as it does not consider other factors that influence the relationship between the endowment per student and the overall ranking: 
+
+1. Resource Allocation: A high endowment doesn't necessarily guarantee effective resource allocation that directly influences rankings. Some universities might have large endowments but allocate resources differently, prioritising spending on specific aspects such as faculty, research, infrastructure, or student programmes. This might impact their rankings differently.
+
+2. Ranking Criteria: University rankings are based on various criteria, including academic reputation, faculty-to-student ratio, research output, and more. Endowment per student is just one financial aspect and might not capture the broader factors influencing rankings.
+
+3. Other factors: Many other factors might explain the size of the endowment in relationship to the university ranking. Notably, Princeton University has a very high endowment per student. Yet one should note that Princeton has a relatively small student body. However, the high endowment might stem from other factors such as historical funding and donations, Alumni support, financial aid and tuition fees etc. The analysis of the correlation between ranking and endowment per student necessitates a more complex analysis of the factors explaining the composition of rankings and endowments.
+
+```{r R squared for the second plot}
+
+# Fit a linear regression model
+model2 <- lm(Endowment_Per_Student ~ Average_Rank, data = analysis_df)
+
+# View the R-squared value
+rsquared_value_2 <- summary(model2)$r.squared
+cat("R-squared Plot 2:", rsquared_value_2, "\n")
+```
+
+
+
+##### 3. Average endowment per student vs average median household income
+
+```{r third plot average endowment per student and average median household income, message=FALSE}
+
+# Third ggplot: average endowment per student vs average median household income
+third_plot <- ggplot(analysis_df, aes(y = Avg_Household_Income_2015_2020/1000, x = Endowment_Per_Student/1000, color = factor(Institution))) +
+  geom_point(size = 1.5) +
+  # Add a regression line
+  stat_smooth(method = "lm", se = TRUE, color = "#FEE000") +
+  geom_text(aes(label = Institution), hjust = -0.005, vjust = -0.7, size = 2, color = "black") +  # Add labels
+  labs(title = "Endowment Per Student vs. Average Median Household Income",
+       x = "Endowment per Student, in thousand USD",
+       y = "Average Median Household Income for the County (2015 and 2020), in thousand USD",
+       color = "Ivy League University") +
+  theme_minimal() +
+  theme(
+    # Adjust the font size for the title and the axes
+    axis.text = element_text(size = 8),     
+    axis.title = element_text(size = 8),    
+    plot.title = element_text(size = 12)
+  ) +
+  # Use a logarithmic scale for the x-axis
+  scale_x_log10(limits = c(300, 6500), expand = c(0.02, 0)) +
+  scale_y_log10(limits = c(35, 150), expand = c(0.02, 0))
+
+# Display the third plot
+third_plot
+```
+
+
+**The plot**: Comment on the logarithmic scale of the axes.
+
+**The findings**: There seems to be a slight positive correlation between the average median household income for the county and the endowment per student.
+
+```{r R squared for the third plot}
+
+# Fit a linear regression model
+model3 <- lm(Avg_Household_Income_2015_2020 ~ Endowment_Per_Student, data = analysis_df)
+
+# View the R-squared value
+rsquared_value_3 <- summary(model3)$r.squared
+cat("R-squared Plot 3:", rsquared_value_3, "\n")
+```
+
+
+##### 4. Average revenue per student vs average median household income
+
+```{r fourth plot average revenue per student and average median household income, message=FALSE}
+
+# Fourth ggplot: average revenue per student vs. average median household income
+fourth_plot <- ggplot(analysis_df, aes(y = Avg_Household_Income_2015_2020/1000, x = Rev_Per_Student_2015_2020/1000, color = factor(Institution))) +
+  geom_point(size = 1.5) +
+  # Add a regression line
+  stat_smooth(method = "lm", se = TRUE, color = "#FEE000") +
+  geom_text(aes(label = Institution), hjust = -0.005, vjust = -0.7, size = 2, color = "black") +
+  labs(title = "Average Revenue Per Student vs. Average Median Household Income",
+       x = "Average Revenue Per Student (2015 - 2020), in thousand USD",
+       y = "Average Median Household Income for the County (2015 and 2020), in thousand USD",
+       color = "Ivy League University") +
+  theme_minimal() +
+  theme(
+    # Adjust the font size for the title and the axes
+    axis.text = element_text(size = 8),     
+    axis.title = element_text(size = 8),    
+    plot.title = element_text(size = 12)
+  ) +
+  # Use a logarithmic scale for the x-axis
+  scale_x_log10(limits = c(110, 600), expand = c(0.02, 0)) +
+  scale_y_log10(limits = c(25, 150), expand = c(0.02, 0))
+
+# Display the fourth plot
+fourth_plot
+```
+
+```{r R squared for the fourth plot}
+
+# Fit a linear regression model
+model4 <- lm(Avg_Household_Income_2015_2020 ~ Rev_Per_Student_2015_2020, data = analysis_df)
+
+# View the R-squared value
+rsquared_value_4 <- summary(model4)$r.squared
+cat("R-squared Plot 4:", rsquared_value_4, "\n")
+
+```
+
+
+
+### b. Visualisation of geographic data
+
+Using `SQL`, call into `R` from your relational database a table that includes, for **every R1 and R2 university**:
+
+i. University name
+ii. Geographic coordinates
+iii. Status (public vs. private)
+iv. Whether the university is an Ivy League institution
+
+
+#### Analysis table 
+
+```{r sql queries for the geography table}
+
+# Select columns: University name, geographic coordinates, status (private or public), Ivy League indicator
+query_geography <- "
+  SELECT Institution, Control, Geographic_Location, Ivy_League
+  FROM universities_df;
+"
+
+# Execute the query
+analysis_table_geography <- dbGetQuery(db, query_geography)
+
+analysis_table_coordinates <- separate(analysis_table_geography, Geographic_Location, into = c("latitude", "longitude"), sep = " ", convert = TRUE)
+
+# Extract numeric values from the coordinates
+analysis_table_coordinates <- analysis_table_coordinates %>%
+  mutate(
+    latitude = as.numeric(str_extract(latitude, "([0-9.]+)")),
+    longitude = as.numeric(str_extract(longitude, "([0-9.]+)"))
+  ) %>%
+  mutate(longitude = -longitude)
+
+analysis_table_coordinates <- analysis_table_coordinates[complete.cases(analysis_table_coordinates$latitude, analysis_table_coordinates$longitude), ]
+
+# Convert analysis_table geography into an sf object
+geography_sf <- st_as_sf(analysis_table_coordinates, coords = c("longitude", "latitude"), crs = 4326)
+```
+
+Retrieve a [shapefile](https://en.wikipedia.org/wiki/Shapefile) of the United States using the `tigris` package (or, if you prefer the `tidycensus` package, but `tigris` is easier). Using either the `tmap` package or the `ggmap` package, include in the main section of your `.html` a visually clear and compelling map that is appropriately labelled which shows:
+
+i. every R1 and R2 university, excluding the Ivy League institutions, as a point
+ii. where the colour of the points varies by status (public vs. private)
+iii. Ivy League universities as contrasting points 
+
+
+
+```{r get the US states shapefile, eval = FALSE}
+
+# Shapefile with US states
+us_states <- states()
+```
+
+
+
+```{r create the map plot, eval=FALSE}
+
+# Set the tmap mode
+tmap_mode("view")
+  
+# Plot the regions
+my_plot <- tm_shape(us_states) +
+  tm_polygons("REGION") +
+  
+  # Dots for non-Ivy League universities
+  tm_shape(geography_sf[geography_sf$Ivy_League == 0, ]) +
+  tm_dots(size = 0.2, col = "Control", title = "University Status") +
+  
+  # Symbols for Ivy League universities
+  tm_shape(geography_sf[geography_sf$Ivy_League == 1, ]) +
+  tm_dots(size = 0.5, col = "#FF0000", shape = 18, title = "Ivy League") +
+  
+  tm_layout(title = "US Regions with Universities")
+
+```
+
+
+
+
+
+##```{r}
+# Plot the universities
+tm_shape(geography_sf) +
+  tm_dots(size = 0.2, 
+          col = ifelse(geography_sf$Ivy_League == 1, "red", 
+                        ifelse(geography_sf$Control == "Public", "blue", "green")),
+          title = "University Type") +
+  
+  # Plot Ivy League universities
+  tm_shape(geography_sf[geography_sf$Ivy_League == 1, ]) +
+  tm_dots(size = 0.5, shape = 18, col = "red", title = "Ivy League") +
+  
+  # Layout settings
+  tm_layout(title = "US Universities")
+
+##```
+
+
+```{r save the map, eval = FALSE}
+
+## save an image ("plot" mode)
+tmap_save(my_plot, filename = "geographic_plot.png")
+
+## save as stand-alone HTML file ("view" mode)
+tmap_save(my_plot, filename = "geographic_plot.html")
+```
+
+#```{r}
+knitr::include_graphics("geographic_plot.png")
+
+#```
+
+```{r include_map, echo=FALSE}
+
+htmltools::includeHTML("geographic_plot.html")
+```
+
+
+Is there any notable pattern to where the Ivy League universities concentrated? What about private and public universities? Do any parts of the United States  appear particularly under-resourced in terms of research universities? How might you explain the patterns you observe?
+
+*Note*: You can decide what geographies to include (see the [documentation](https://github.com/walkerke/tigris) for more details, but to retrieve just an outline of the USA you could use `tigris::nation()`, or to retrieve an outline of the states you could use `tigris::states()`, etc.). You may also need to use the `sf` and `sp` packages, depending on your workflow. 
+
+
+
+
+
 
 
 
