@@ -1849,67 +1849,126 @@ iii. Ivy League universities as contrasting points
 
 
 
-```{r get the US states shapefile, message = FALSE, eval = TRUE}
+```{r get the US states shapefile, message = FALSE}
 
-# Shapefile with US 
-us_map <- nation()
+invisible(capture.output({
+  # Shapefile with US 
+  us_map <- nation()
+}))
 ```
 
 
-
-```{r create the map plot, message = FALSE, eval=TRUE}
+```{r create the map plot, message = FALSE}
 
 # Set the tmap mode
 tmap_mode("view")
 
+# Set the bounding box for the US
+us_bbox <- c(-175, 17, -63, 73)
+
 # Plot the regions
 geographic_plot <- tm_shape(us_map) +
-  tm_polygons("NAME", palette=c("United States"="#8DD08D")) +
+  tm_polygons("NAME", palette=c("United States"="#8DD08D"), alpha = 0.5, legend.show = FALSE) +
   
   # Dots for non-Ivy League universities
   tm_shape(geography_sf[geography_sf$Ivy_League == 0, ]) +
   tm_dots(size=0.05, 
           col="Control", palette=c("Public"='#F781BF', "Private (non-profit)"='#FFC20A'), 
           title="University Status") +
-  #tm_dots(size = 0.2, col = custom_colors[geography_sf$Control], title = "University Status") +
   
-  # Symbols for Ivy League universities
+  # Dots for Ivy League universities
   tm_shape(geography_sf[geography_sf$Ivy_League == 1, ]) +
-  tm_dots(size = 0.1, shape=18, col = "#FF0000", title = "Ivy League") +
-  #tm_symbols(shape=18, col = "#FF0000", title = "Ivy League") +
+  tm_dots(size = 0.1, 
+          col = "Ivy_League",
+          palette=c("1"= "#FF0000", "0" = "grey"), 
+          legend.show = TRUE,
+          title = "Ivy League",
+          labels = c("1" = "Ivy League", "0" = "Non-Ivy")) +
   
-  tm_layout(title = "US R1 and R2 Universities")
-
+  tm_layout(title = "US R1 and R2 Universities") +
+  
+  # Set the view to the US bounding box
+  tm_view(bbox = us_bbox)
 
 geographic_plot
+
 ```
 
 
 
+Is there any notable pattern to where the Ivy League universities concentrated? What about private and public universities? Do any parts of the United States appear particularly under-resourced in terms of research universities? How might you explain the patterns you observe?
+
+#### Discussion of the Map
+
+##### 1. Ivy Leagues are all on the East Coast
+
+##### 2. Distribution of public and private universities
+
+Public and private universities seemingly spread across the country. However, when displaying the OpenStreetMap instead of the default Esri.WorldGrayCanvas (can be selected by clicking on the filter icon in the top left corner) and zooming in, we can notice that most private universities are located in close proximity to larger cities (such as Los Angeles, Dallas, Chicago, Washington DC, New York City, Boston).
+
+Several factors might explain this phenomenon, such as:
+
+i. Access to Resources: Larger cities often offer better access to resources such as libraries, research facilities, cultural institutions, and industry partnerships. Private universities, which often rely on tuition and private funding, may be attracted to urban areas where these resources are abundant.
+
+ii. Industry Connections: Proximity to major urban centers provides opportunities for private universities to establish strong connections with industries, businesses, and organisations. This can lead to collaborative research, internships, and employment opportunities for students.
+
+iii. Networking Opportunities: Being close to a city facilitates networking opportunities for students and alumni. Private universities often emphasize networking and alumni relations, and being situated near a city with a robust job market can enhance students' chances of securing internships and jobs.
+
+iv. International Attraction: Cities tend to attract a diverse population, including international students. Private universities, which may have a higher reliance on tuition revenue, may be attracted to urban areas for the potential to attract a broader and more diverse student body.
+
+v. Philanthropy and Donor Base: Major cities are often home to a concentration of wealthy individuals and corporations. Private universities may be strategically located in proximity to potential donors, facilitating fundraising efforts and building a strong financial foundation.
+
+However, it should be noted that in order to explain why private universities seemingly choose more urban locations, further research of the proposed factors would be necessary.
+
+##### 3. Under-researched areas
+
+It is noticeable, that the universities are mainly concentrated along the coastlines and in the East of the US. The Midwest/West and Alaska are relatively under-researched. Several factors might explain that observation:
+
+i. Historical Development: Many of the oldest and most prestigious universities in the United States, such as Harvard and Princeton, were established in the colonial period and early years of the nation's history (Source: [Wikipedia](https://en.wikipedia.org/wiki/History_of_higher_education_in_the_United_States#:~:text=Explosive%20growth%20in%20the%20number,regional%20campuses%20around%20the%20state.)). These institutions often originated in the eastern part of the country. Potentially, the presence of these early institutions might have influenced the establishment of additional universities in nearby areas.
+
+ii. Population Centers: The eastern and western coasts of the United States are home to some of the country's largest and most populous cities (Source: [Wikipedia](https://en.wikipedia.org/wiki/List_of_United_States_cities_by_population)). Potentially, Universities might tend to develop in areas with large population centers.
+
+iii. Economic Opportunities: Coastal areas might to have larger economic opportunities, including access to industries, businesses, and financial centers, potentially inspiring the establishment of higher education institutions.
+
+iv. Transportation Infrastructure: As visualised by the map below, the US American public transportation infrastructure (in the map reduced to the railway infrastructure) is better developed in the Eastern part of the US compared to the Midwest. Potentially, access to public transportation is a motivating factor for establishing higher education institutions at specific places.
+
+#```{r get the US railway shapefile, message = FALSE}
+
+invisible(capture.output({
+  # Shapefile with US railway
+  us_railway <- rails()
+}))
+#```
+
+
+#```{r railway map}
+
+rails_sf <- st_as_sf(us_railway)
+
+# Set the tmap mode
+#tmap_mode("view")
+
+# Plot with tmap
+railway_map <- tm_shape(rails_sf) +
+  tm_lines(lwd = 1, col = "blue") +
+  tm_basemap(server = "OpenStreetMap") +
+  tm_layout(title = "Railway System") +
+  # Set the view to the US bounding box
+  tm_view(bbox = us_bbox)
+
+railway_map
+#```
 
 
 
-Is there any notable pattern to where the Ivy League universities concentrated? What about private and public universities? Do any parts of the United States  appear particularly under-resourced in terms of research universities? How might you explain the patterns you observe?
-
-*Note*: You can decide what geographies to include (see the [documentation](https://github.com/walkerke/tigris) for more details, but to retrieve just an outline of the USA you could use `tigris::nation()`, or to retrieve an outline of the states you could use `tigris::states()`, etc.). You may also need to use the `sf` and `sp` packages, depending on your workflow. 
-
-
-
-
-
-
-
-
-## Close the stuff again
-
-
-```{r}
-# Close the database connection
-dbDisconnect(db)
-```
 
 ## Data
 
+```{r close the database connection}
+
+# Close the database connection
+dbDisconnect(db)
+```
 
 
 ## Sources
