@@ -31,6 +31,7 @@ library(stringr)
 library(tmap)
 #library(ggmap)
 library(sf)
+library(htmlwidgets)
 
 ```
 
@@ -1848,75 +1849,44 @@ iii. Ivy League universities as contrasting points
 
 
 
-```{r get the US states shapefile, eval = FALSE}
+```{r get the US states shapefile, message = FALSE, eval = TRUE}
 
-# Shapefile with US states
-us_states <- states()
+# Shapefile with US 
+us_map <- nation()
 ```
 
 
 
-```{r create the map plot, eval=FALSE}
+```{r create the map plot, message = FALSE, eval=TRUE}
 
 # Set the tmap mode
 tmap_mode("view")
-  
+
 # Plot the regions
-my_plot <- tm_shape(us_states) +
-  tm_polygons("REGION") +
+geographic_plot <- tm_shape(us_map) +
+  tm_polygons("NAME", palette=c("United States"="#8DD08D")) +
   
   # Dots for non-Ivy League universities
   tm_shape(geography_sf[geography_sf$Ivy_League == 0, ]) +
-  tm_dots(size = 0.2, col = "Control", title = "University Status") +
+  tm_dots(size=0.05, 
+          col="Control", palette=c("Public"='#F781BF', "Private (non-profit)"='#FFC20A'), 
+          title="University Status") +
+  #tm_dots(size = 0.2, col = custom_colors[geography_sf$Control], title = "University Status") +
   
   # Symbols for Ivy League universities
   tm_shape(geography_sf[geography_sf$Ivy_League == 1, ]) +
-  tm_dots(size = 0.5, col = "#FF0000", shape = 18, title = "Ivy League") +
+  tm_dots(size = 0.1, shape=18, col = "#FF0000", title = "Ivy League") +
+  #tm_symbols(shape=18, col = "#FF0000", title = "Ivy League") +
   
-  tm_layout(title = "US Regions with Universities")
+  tm_layout(title = "US R1 and R2 Universities")
 
+
+geographic_plot
 ```
 
 
 
 
-
-##```{r}
-# Plot the universities
-tm_shape(geography_sf) +
-  tm_dots(size = 0.2, 
-          col = ifelse(geography_sf$Ivy_League == 1, "red", 
-                        ifelse(geography_sf$Control == "Public", "blue", "green")),
-          title = "University Type") +
-  
-  # Plot Ivy League universities
-  tm_shape(geography_sf[geography_sf$Ivy_League == 1, ]) +
-  tm_dots(size = 0.5, shape = 18, col = "red", title = "Ivy League") +
-  
-  # Layout settings
-  tm_layout(title = "US Universities")
-
-##```
-
-
-```{r save the map, eval = FALSE}
-
-## save an image ("plot" mode)
-tmap_save(my_plot, filename = "geographic_plot.png")
-
-## save as stand-alone HTML file ("view" mode)
-tmap_save(my_plot, filename = "geographic_plot.html")
-```
-
-#```{r}
-knitr::include_graphics("geographic_plot.png")
-
-#```
-
-```{r include_map, echo=FALSE}
-
-htmltools::includeHTML("geographic_plot.html")
-```
 
 
 Is there any notable pattern to where the Ivy League universities concentrated? What about private and public universities? Do any parts of the United States  appear particularly under-resourced in terms of research universities? How might you explain the patterns you observe?
