@@ -1930,34 +1930,9 @@ ii. Population Centers: The eastern and western coasts of the United States are 
 
 iii. Economic Opportunities: Coastal areas might to have larger economic opportunities, including access to industries, businesses, and financial centers, potentially inspiring the establishment of higher education institutions.
 
-iv. Transportation Infrastructure: As visualised by the map below, the US American public transportation infrastructure (in the map reduced to the railway infrastructure) is better developed in the Eastern part of the US compared to the Midwest. Potentially, access to public transportation is a motivating factor for establishing higher education institutions at specific places.
-
-#```{r get the US railway shapefile, message = FALSE}
-
-invisible(capture.output({
-  # Shapefile with US railway
-  us_railway <- rails()
-}))
-#```
+iv. Transportation Infrastructure: As visualised in this [map of the US railway system](https://github.com/emmi3105/472_assignment3/blob/385882f6fed3a176ddc109860cf51011527df8c8/railway_map.png) the US American public transportation infrastructure is better developed in the Eastern part of the US compared to the Midwest. Potentially, access to public transportation is a motivating factor for establishing higher education institutions at specific places.
 
 
-#```{r railway map}
-
-rails_sf <- st_as_sf(us_railway)
-
-# Set the tmap mode
-#tmap_mode("view")
-
-# Plot with tmap
-railway_map <- tm_shape(rails_sf) +
-  tm_lines(lwd = 1, col = "blue") +
-  tm_basemap(server = "OpenStreetMap") +
-  tm_layout(title = "Railway System") +
-  # Set the view to the US bounding box
-  tm_view(bbox = us_bbox)
-
-railway_map
-#```
 
 
 
