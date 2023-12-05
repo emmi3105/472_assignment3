@@ -1902,6 +1902,8 @@ Is there any notable pattern to where the Ivy League universities concentrated? 
 
 ##### 1. Ivy Leagues are all on the East Coast
 
+As seen in the map above, the Ivy League universities are all concentrated in the East Coast of the United States.
+
 ##### 2. Distribution of public and private universities
 
 Public and private universities seemingly spread across the country. However, when displaying the OpenStreetMap instead of the default Esri.WorldGrayCanvas (can be selected by clicking on the filter icon in the top left corner) and zooming in, we can notice that most private universities are located in close proximity to larger cities (such as Los Angeles, Dallas, Chicago, Washington DC, New York City, Boston).
