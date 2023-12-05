@@ -29,7 +29,6 @@ library(tidycensus)
 library(tigris)
 library(stringr)
 library(tmap)
-#library(ggmap)
 library(sf)
 library(htmlwidgets)
 
@@ -42,15 +41,6 @@ The GitHub repository for **this assignment** can be found [here](https://github
 
 
 ## Exercise 1
-
-This assignment will take us through a workflow that a data scientist might encounter in the real world, from data collection right through to analysis. Throughout this assignment we are going to use a local relational database to store a variety of different but related tables that we collect and may want to combine in various ways. We will want to ensure that each table within our database can be joined to every other table using a `primary key`. 
-
-We will start by creating an empty local relational database. You should store this new database in a 'database' folder that you create within your assignment folder. Follow these steps:
-
-1. Use the `DBI::dbConnect()` function in `R` to create a new `SQLite` database (either `YOUR_DB_NAME.sqlite` or `YOUR_DB_NAME.db`) in your database folder.
-2. Use the `file.exists()` function in `R` to check for the existence of your relational database.  
-
-Include in the main text of your `.html` submission the code that created the database **and** the code that checks for its existence **and** the output of that check.
 
 ```{r start exercise 1}
 
@@ -69,6 +59,7 @@ Include in the main text of your `.html` submission the code that created the da
 db <- dbConnect(RSQLite::SQLite(), "universities_db.sqlite")
 ```
 
+
 ### Check for the existence of the database
 
 ```{r check existence of database, echo=TRUE}
@@ -77,20 +68,24 @@ db <- dbConnect(RSQLite::SQLite(), "universities_db.sqlite")
 print(file.exists("universities_db.sqlite"))
 ```
 
-As the output of the code chunk above is "TRUE", the database exists.
+As the output of the code chunk above is "TRUE", the database `universities_db.sqlite` exists.
 
+**Note**: The primary key that will be used throughout this assignment is the variable "Institution", which refers to the name of the university.
 
 ## Exercise 2
 
 ### a. Gathering structured data 
 
-```{r start exercise 2}
+```{r start exercise 2a and 2b}
 
 #####################################
 # EXERCISE 2
 #####################################
+# 2A and 2B
+#####################################
 
 ```
+
 
 **Note**: The solution to Exercise 2a can be found under the solution for Exercise 2b.
 
@@ -98,28 +93,25 @@ As the output of the code chunk above is "TRUE", the database exists.
 
 #### Automatic webscraping function for 2a and b
 
-I combined exercise 2a and 2b and directly wrote and executed a webscraping function called scrape_wikipedia_tables() that returns a dataframe with the following eight variables: 
+I combined exercise 2a and 2b and directly wrote and executed a webscraping function called `scrape_wikipedia_tables()` that returns a data frame with the following eight variables: 
 
-i. The university’s name
-ii. It’s status (public or private)
-iii. The city in which it is located
-iv. The state in which it is located
-v. The URL of the university’s dedicated Wikipedia page
-vi. The geographic coordinates of the (main) university campus
-vii. The endowment of the university in USD dollars
-viii. The total number of students (including both undergraduate and postgraduate)
+i. `Institution`: The university’s name, which will be used as the primary key
+ii. `Control`: The university’s status (public or private)
+iii. `City`: The city in which the university is located
+iv. `State`: The state in which the university is located
+v. `Wikipedia_URL`: The URL of the university’s dedicated Wikipedia page
+vi. `Geographic_Location`: The geographic coordinates of the (main) university campus
+vii. `Endowment`: The endowment of the university in USD dollars
+viii. `Students`: The total number of students (including both undergraduate and postgraduate)
 
-The resulting dataframe is stored under the name "universities_table".
+The resulting data frame is stored under the name `universities_table`.
 
 
 ```{r wikipedia web scraping function}
 
 scrape_wikipedia_tables <- function(url) {
-  # Input: URL to wikipedia
-  # Function accesses wikipedia articles on universities and scrapes information from the wikipedia pages.
-  # Output: A table with information on US American R1 and R2 universities. More precisely, the table holds the university's name, status (private or public), city, state, the url to the university's Wikipedia page, the university's geographic coordinates, endowment, and number of total students.
   
-  ### Exercise 2a: scrape information on the name, status, city, state and the url to the wikipedia page
+  ### Exercise 2a: scrape information on the name, status, city, state and the URL to the Wikipedia page
   table_indices <- c(19, 27)
   
   # Storing the URL's HTML code
@@ -138,7 +130,7 @@ scrape_wikipedia_tables <- function(url) {
     empty_tibble <- bind_rows(empty_tibble, current_table)
   }
 
-  # Initialize an empty list to store hyperlinks
+  # Initialise an empty list to store hyperlinks
   hyperlinks_list <- list()
 
   # Iterate over the table indices and extract hyperlinks
@@ -168,8 +160,8 @@ scrape_wikipedia_tables <- function(url) {
     
   ### Exercise 2b: Add the geographic location, endowment and students
   
+  
   #### Geographic location
-
   geographic_data <- list()
 
   for (hyperlink in hyperlinks_list) {
@@ -183,7 +175,6 @@ scrape_wikipedia_tables <- function(url) {
  
     # Store the scraped information in a list
     geographic_data <- append(geographic_data, list(geographic_location))
-  
   }
 
   # Add a new column 'Geographic_Location' with the scraped data
@@ -193,8 +184,8 @@ scrape_wikipedia_tables <- function(url) {
   empty_tibble <- empty_tibble %>%
     mutate(Geographic_Location = map_chr(Geographic_Location, ~ .[1]))
   
+  
   #### Endowment and budget
-
   endowment_data <- list()
 
   # Clean text by removing text within brackets
@@ -242,7 +233,6 @@ scrape_wikipedia_tables <- function(url) {
   #### Students
   
   # To avoid issues with students being spread on different campuses, scrape total student information by adding information on all undergraduates to all postgraduates
-  
   undergraduates_data <- list()
   postgraduates_data <- list()
 
@@ -290,7 +280,6 @@ scrape_wikipedia_tables <- function(url) {
                                         empty_tibble$Undergraduates + empty_tibble$Postgraduates))
 
   # If the website neither holds information on undergraduates nor on postgraduates, look for information on total students
-
   students_data <- list()
 
   for (hyperlink in hyperlinks_list) {
@@ -363,22 +352,33 @@ universities_table$Endowment <- sapply(universities_table$Endowment, transform_e
 
 #### Notes on the function
 
-**Geographic Location**: Some universities have several sets of coordinates on their wikipedia sites. For instance, there are universities with multiple campuses whose geographic locations are all noted down on wikipedia. Therefore, the function above includes a line of code that specifies that only the very first set of coordinates is appended to the dataframe. Thereby, the geographic location column holds simplified data that potentially might not reflect the location of the entire university.
+**Geographic Location**: Some universities have several sets of coordinates on their Wikipedia sites. For instance, there are universities with multiple campuses whose geographic locations are all noted down on Wikipedia. Therefore, the function above includes a line of code that specifies that only the very first set of coordinates is appended to the data frame. Thereby, the geographic location column holds simplified data that potentially might not reflect the location of the entire university.
 
-**Endowment**: Not all universities we are interested in include information on the "endowment" on their wikipedia website. However, some university wikipedia articles include data on the university's "budget". Since endowment and budget likely refer to the same thing, I have included an if-statement in the function above, that specifies the following: If a university's wikipedia article does not hold information on the endowment, the function will look whether there is information on the budget and use this data instead. Nonetheless, there are a few universities that have neither the endowment nor the budget declared on wikipedia. For those instances, the endowment variable in our table will hold a missing values as specified in the following section.
+**Endowment**: Not all universities we are interested in include information on the `endowment` on their Wikipedia website. However, some university Wikipedia articles include data on the university's `budget.` Since `endowment` and `budget` likely refer to the same variable, we have included an if-statement in the function above, that specifies the following: If a university's Wikipedia article does not hold information on the 
+`endowment`, the function will look whether there is information on the `budget` and use this data instead. Nonetheless, there are a few universities that have neither the `endowment` nor the `budget` declared on Wikipedia. For those instances, the endowment variable in our table will hold a missing value as specified in the section below.
 
-**Students**: On some websites, the total student body is not declared in a comprehensive way because it is split up by the different campusses of the university. Therefore, it is easier to scrape the data by adding the number of postgraduates and undergraduates than to write a function that can add all of the student bodies from different campusses of the individual universities. To ensure that also universities that only have postgraduates or undergraduates, and universities which only have a number for the total student body on their website, the code is modified. Firstly, an if-statement will ensure that for those instances with NA's for either variable postgraduates or undergraduates, the number from the variable without the NA is declared as the total student body. Secondly, for the instances that only include data on the total student body on the website, another webscraping is formulated that scrapes the "Students" data from the Wikipedia website and then adds this to the variable in our scraped data set.
+**Students**: On some websites, the total student body is not declared in a comprehensive way because it is split up by the different campuses of the university. Therefore, it is more efficient to scrape the data by adding the number of postgraduates and undergraduates instead of writing a function that can add all of the student bodies from different campuses of the individual universities. To ensure that also universities that only have postgraduates or undergraduates, and universities which only have a number for the total student body on their website, the code is modified. Firstly, an if-statement will ensure that for those instances with NA's for either postgraduates or undergraduates, the number from the variable without the NA is declared as the total student body. Secondly, for the instances that only include data on the total student body on the website, another statement is formulated that scrapes the `Students` data from the Wikipedia website and then adds this to the variable in our scraped data set.
 
 #### Notes on missing values
 
-**Geographic Location**: There are missing values in the geographic location column. To be exact, the [University of Colorado Denver](https://en.wikipedia.org//wiki/University_of_Colorado_Denver) and the [University of Mississippi](https://en.wikipedia.org//wiki/University_of_Mississippi) do not have information on the geographic location on their wikipedia websites.
+**Geographic Location**: There are missing values in the geographic location column. To be exact, the [University of Colorado Denver](https://en.wikipedia.org//wiki/University_of_Colorado_Denver) and the [University of Mississippi](https://en.wikipedia.org//wiki/University_of_Mississippi) do not have information on the geographic location on their Wikipedia websites. Missing values are declared as NA in our data frame.
 
-**Endowment**: For some universities, there are no data on the endowment that is available on the wikipedia website. More precisely, the [Airforce Institute of Technology](https://en.wikipedia.org//wiki/Air_Force_Institute_of_Technology), [Azusa Pacific University](https://en.wikipedia.org/wiki/Azusa_Pacific_University), [Long Island University](https://en.wikipedia.org//wiki/LIU_Post	), and the [University of Missouri–St. Louis](https://en.wikipedia.org//wiki/University_of_Missouri%E2%80%93St._Louis	) do not have information on the website on endowment/budget.
+**Endowment**: For some universities, the Wikipedia website neither includes data on `endowment` nor on `budget`. More precisely, the [Airforce Institute of Technology](https://en.wikipedia.org//wiki/Air_Force_Institute_of_Technology), [Azusa Pacific University](https://en.wikipedia.org/wiki/Azusa_Pacific_University), [Long Island University](https://en.wikipedia.org//wiki/LIU_Post	), and the [University of Missouri–St. Louis](https://en.wikipedia.org//wiki/University_of_Missouri%E2%80%93St._Louis	) do not have information on the website on endowment/budget. Missing values are declared as NA in our data frame.
 
 
 ### c. Data munging
 
-#### "ivyleagues" dataframe
+
+```{r start exercise 2c}
+
+#####################################
+# 2C
+#####################################
+
+```
+
+
+#### The `ivyleagues` data frame
 
 ```{r read in ivyleague.csv}
 
@@ -386,13 +386,18 @@ universities_table$Endowment <- sapply(universities_table$Endowment, transform_e
 ivyleagues <- read.csv("ivyleague.csv")
 ```
 
-We have stored "ivyleague.csv" as a dataframe called "ivyleagues". It contains four variables, namely a **shortened** version of each university's name ("uni_name"), the County ("county") and State ("state") in which the university's main campus is located, and the university's Employer Identification Number ("ein"). There are eight observations in the dataframe.
+We have stored `ivyleague.csv` as a data frame called `ivyleagues`. Which has eight observations and the following four variables:
 
-Since the university names in "ivyleagues" are shortened, yet later on (in our relational database), we want to reference the universities by their full name, we create a new variable in the ivyleagues dataframe that gives the full name of the universities.
+i. `uni_name`: a **shortened** version of each university's name
+ii. `county`: the county in which the university's main campus is located 
+iii. `state`: the state in which the university's main campus is located
+iv. `ein`: the Employer Identification Number
+
+As the primary key - `Institution` - in the relational database that we will create later is the full name of the university, we created a new variable in the `ivyleagues` data frame that gives the full name instead of the shortened version for each Ivy League. We store this variable under the column name `Institution`. This ensures that we can later properly gather and bind data from different tables within the relational database. 
 
 ```{r add the full names to the universities in ivyleagues}
 
-# Update the full_name column based on conditions
+# Add a column called Institution with the full name of the Ivy Leagues
 ivyleagues <- ivyleagues %>%
   mutate(
     Institution = case_when(
@@ -410,11 +415,11 @@ ivyleagues <- ivyleagues %>%
 
 #### Ivy League Indicator, County and EIN
 
-Now, we use the "iveleagues" dataframe to create three new variables in the "universities_table" dataframe, namely:
+Now, we use the `iveleagues` data frame to create three new variables in the `universities_table` data frame, namely:
 
-ix. "Ivy_League": An binary variable indicating whether the university is an Ivy League institution
-x. "County": The university's county and state (only for Ivy Leagues, for all others, "County" is NA)
-xi. "EIN": The university's EIN (only for Ivy Leagues, for all others, "EIN" is NA)
+ix. `Ivy_League`: An binary variable indicating whether the university is an Ivy League institution
+x. `County`: The university's county and state (only for Ivy Leagues, for all others, `County` is NA)
+xi. `EIN`: The university's EIN (only for Ivy Leagues, for all others, `EIN` is NA)
 
 ```{r clean the ivyleagues table}
 
@@ -422,6 +427,7 @@ xi. "EIN": The university's EIN (only for Ivy Leagues, for all others, "EIN" is 
 ivyleagues <- ivyleagues %>%
   mutate(County = ifelse(!is.na(county), paste(county, state, sep = ", "), state))
 
+# Add the three variables Ivy_League, County, EIN to universities_table
 universities_table <- universities_table %>%
   left_join(ivyleagues %>% select(Institution, ein, County), by = c("Institution" = "Institution")) %>%
   mutate(Ivy_League = ifelse(Institution %in% ivyleagues$Institution, 1, 0)) %>%
@@ -431,11 +437,21 @@ universities_table <- universities_table %>%
 
 ### d. Writing to your relational database
 
+
+```{r start exercise 2d}
+
+#####################################
+# 2D
+#####################################
+
+```
+
+
 #### Check if the data is tidy
 
 We check whether the data is tidy in two steps:
 
-1. Each row is a unique university
+##### 1. Each row is a unique university
 
 ```{r check if each row holds one unique observation}
 
@@ -448,14 +464,14 @@ if (length(unique(universities_table$Institution)) == length(universities_table$
 }
 ```
 
-2. Each column is a variable
+##### 2. Each column is a variable
 
 ```{r check if each variable is represented by one column}
 
 # Check if the columns in universities_table each represent one of the 11 variables
 if (ncol(universities_table) == 11) {
   column_names <- colnames(universities_table)
-  column_answer <- sprintf("The dataframe has %d columns:", ncol(universities_table))
+  column_answer <- sprintf("The dataframe has %d columns, which each represent one variable:", ncol(universities_table))
   formatted_names <- sprintf("Column %d: %s", 
                              seq_along(column_names), 
                              column_names)
@@ -465,11 +481,11 @@ if (ncol(universities_table) == 11) {
 }
 ```
 
-As we can see, the data is tidy. Each row represents one of the 279 unique universities and each column holds one of the 11 variables.
+As we can see, the data is tidy. Each row represents one of the 279 unique universities and each column holds one of the 11 variables. The column `Institution` holds the unique name of each university and will be used as the primary key.
 
 #### Write universities_table to the relational database
 
-We write "universities_table" to the relational database "db" under the name "universities". The unique key is the university name, which can be accessed via the "Institution" variable.
+We write `universities_table` to the relational database `db` under the name `universities_df`. The unique key is the university name, which can be accessed via the `Institution` variable.
 
 ```{r write universities_table to the relational database}
 
@@ -477,7 +493,7 @@ We write "universities_table" to the relational database "db" under the name "un
 dbWriteTable(db, "universities_df", universities_table, overwrite = TRUE)
 ```
 
-Now, we want to check the existence and dimensionality of "universities". We do so by defining a function "check_table" that returns the number of rows and columns and the column names of a table if it exists in our relational database.
+Now, we want to check the existence and dimensionality of `universities_df`. We do so by defining a function `check_table()` that returns the number of rows and columns and the column names of the table if it exists in our relational database.
 
 ```{r write a function that checks the existence and correct dimensionality of the table, echo=TRUE}
 
@@ -498,7 +514,7 @@ check_table <- function(db, a_table){
     column_count <- length(unlist(column_names))
     
     # Print out dimensions and column names
-    formatted_string <- sprintf("The table exists and has the following dimensions: \nNumber of rows: %s \nNumber of columns: %s", row_count, column_count)
+    formatted_string <- sprintf("The table %s exists and has the following dimensions: \nNumber of rows: %s \nNumber of columns: %s", a_table, row_count, column_count)
     column_answer <- sprintf("Column names: %s", paste(column_names, collapse = ", "))
     
     return(cat(formatted_string, column_answer, sep = "\n"))
@@ -520,13 +536,16 @@ check_table(db, "universities_df")
 **Task**
 We are now going to use the `Rselenium` package to explore the [Academic Ranking of World Universities](https://www.shanghairanking.com/).^[Are university rankings really meaningful? Probably not, but we will explore them for this exercise anyway.]
 
-```{r start exercise 3}
+```{r start exercise 3a}
 
 #####################################
 # EXERCISE 3
 #####################################
+# 3A
+#####################################
 
 ```
+
 
 ### a. Scraping annual rank
 
@@ -834,6 +853,14 @@ home_page$clickElement()
 
 
 ### b. Scraping subject ranks for 2023
+
+```{r start exercise 3b}
+
+#####################################
+# 3B
+#####################################
+
+```
 
 **Task**
 Extend your webscraper (or create a new one) that gathers for each **Ivy League university only**:
@@ -1179,10 +1206,12 @@ system("taskkill /im java.exe /f", intern=FALSE, ignore.stdout=FALSE)
 
 ## Exercise 4
 
-```{r start exercise 4}
+```{r start exercise 4a}
 
 #####################################
 # EXERCISE 4
+#####################################
+# 4A
 #####################################
 
 ```
@@ -1378,6 +1407,14 @@ check_table(db, "finance_df")
 
 ### b. Gathering local economic data from a packaged API 
 
+```{r start exercise 4b}
+
+#####################################
+# 4B
+#####################################
+
+```
+
 
 ```{r set up the api key, message=FALSE}
 
@@ -1486,17 +1523,22 @@ check_table(db, "census_df")
 
 ## Exercise 5
 
-```{r start exercise 5}
+```{r start exercise 5a}
 
 #####################################
 # EXERCISE 5
+#####################################
+# 5A
 #####################################
 
 ```
 
 
 ### a. Analysis and visualisation
-Using `SQL` (embedded within `R`), call into `R` from your relational database an analysis table that includes, for the **Ivy League institutions only**: 
+
+#### Analysis table
+
+We create a table "analysis_table" that includes the following variables for Ivy League institutions only from the relational database:
 
 i. University name
 ii. The average rank of the university across 2003, 2013, and 2023
@@ -1504,24 +1546,6 @@ iii. The average rank of the university's Economics, Political Science, and Soci
 iv. The current endowment per student (total endowment divided by total number of students), in USD
 v. The average total revenue per student across the years 2015 - 2020, in USD
 vi. The average of the median household income for the County across the years 2015 and 2020, in USD
-
-#### Analysis table
-
-The code for the analysis table can be found in the Appendix.
-
-```{r get the list of table in db}
-
-# Get a list of tables in the database
-tables <- dbListTables(db)
-
-# Print the list of tables
-cat("Tables in the database:", paste(tables, collapse = ", "), "\n")
-```
-
-```{r}
-# Testing that it works with a simple query
-dbListFields(db, "census_df")
-```
 
 
 ```{r sql queries for the analysis table}
@@ -1607,18 +1631,9 @@ analysis_df <- reduce(list_of_dataframes, merge, by = "Institution", all = TRUE)
 
 
 
-#### Ggplots
+#### Visualisations with `ggplot`
 
-Using `ggplot`, include in the main section of your `.html` five compelling, well-labeled plots that show the relationships between:
-
-i. average university ranking and average Econ/PS/Soc ranking
-ii. average university ranking and endowment per student
-iii. average endowment per student and average median household income
-iv. average revenue per student and average median household income
-
-Comment on the relationships you find. Are any of them particularly interesting?  
-
-
+We create four plots that show the relationships between two variables from the analysis_table.
 
 ##### 1. Average university ranking vs. average Econ/PS/Soc ranking
 
@@ -1629,14 +1644,16 @@ first_plot <- ggplot(analysis_df, aes(x = Average_Rank, y = Avg_Econ_PolSc_Soc, 
   geom_point(size = 1.5) +
   # Add a regression line
   stat_smooth(method = "lm", se = TRUE, color = "#FEE000") +
-  geom_text(aes(label = Institution), hjust = -0.005, vjust = -0.7, size = 2, color = "black") +  # Add labels
+  # Add labels
+  geom_text(aes(label = Institution), hjust = -0.005, vjust = -0.7, size = 2, color = "black") +
+  # Add titles
   labs(title = "Average Overall Ranking vs. Subject Ranking for Ivy League Universities",
        x = "Average Overall Ranking (2003, 2013, 2023)",
        y = "Average Ranking for Economics, Political Sciences, and Sociology",
        color = "Ivy League University") +
   theme_minimal() +
+  # Adjust the font size for the title and the axes
   theme(
-    # Adjust the font size for the title and the axes
     axis.text = element_text(size = 10),     
     axis.title = element_text(size = 10),    
     plot.title = element_text(size = 12)
@@ -1673,14 +1690,16 @@ second_plot <- ggplot(analysis_df, aes(x = Average_Rank, y = Endowment_Per_Stude
   geom_point(size = 1.5) +
   # Add a regression line
   stat_smooth(method = "lm", se = TRUE, color = "#FEE000") +
-  geom_text(aes(label = Institution), hjust = -0.005, vjust = -0.7, size = 2, color = "black") +  # Add labels
+  # Add labels
+  geom_text(aes(label = Institution), hjust = -0.005, vjust = -0.7, size = 2, color = "black") +
+  # Add titles
   labs(title = "Average Overall Ranking vs. Endowment Per Student",
        x = "Average University Ranking (2003, 2013, 2023)",
        y = "Endowment per Student, in thousand USD",
        color = "Ivy League University") +
   theme_minimal() +
+  # Adjust the font size for the title and the axes
   theme(
-    # Adjust the font size for the title and the axes
     axis.text = element_text(size = 10),     
     axis.title = element_text(size = 10),    
     plot.title = element_text(size = 12)
@@ -1724,14 +1743,16 @@ third_plot <- ggplot(analysis_df, aes(y = Avg_Household_Income_2015_2020/1000, x
   geom_point(size = 1.5) +
   # Add a regression line
   stat_smooth(method = "lm", se = TRUE, color = "#FEE000") +
-  geom_text(aes(label = Institution), hjust = -0.005, vjust = -0.7, size = 2, color = "black") +  # Add labels
+  # Add labels
+  geom_text(aes(label = Institution), hjust = -0.005, vjust = -0.7, size = 2, color = "black") +
+  # Add titles
   labs(title = "Endowment Per Student vs. Average Median Household Income",
        x = "Endowment per Student, in thousand USD",
        y = "Average Median Household Income for the County (2015 and 2020), in thousand USD",
        color = "Ivy League University") +
   theme_minimal() +
+  # Adjust the font size for the title and the axes
   theme(
-    # Adjust the font size for the title and the axes
     axis.text = element_text(size = 8),     
     axis.title = element_text(size = 8),    
     plot.title = element_text(size = 12)
@@ -1769,14 +1790,16 @@ fourth_plot <- ggplot(analysis_df, aes(y = Avg_Household_Income_2015_2020/1000, 
   geom_point(size = 1.5) +
   # Add a regression line
   stat_smooth(method = "lm", se = TRUE, color = "#FEE000") +
+  # Add labels
   geom_text(aes(label = Institution), hjust = -0.005, vjust = -0.7, size = 2, color = "black") +
+  # Add titles
   labs(title = "Average Revenue Per Student vs. Average Median Household Income",
        x = "Average Revenue Per Student (2015 - 2020), in thousand USD",
        y = "Average Median Household Income for the County (2015 and 2020), in thousand USD",
        color = "Ivy League University") +
   theme_minimal() +
+  # Adjust the font size for the title and the axes
   theme(
-    # Adjust the font size for the title and the axes
     axis.text = element_text(size = 8),     
     axis.title = element_text(size = 8),    
     plot.title = element_text(size = 12)
@@ -1797,12 +1820,20 @@ model4 <- lm(Avg_Household_Income_2015_2020 ~ Rev_Per_Student_2015_2020, data = 
 # View the R-squared value
 rsquared_value_4 <- summary(model4)$r.squared
 cat("R-squared Plot 4:", rsquared_value_4, "\n")
-
 ```
 
 
 
 ### b. Visualisation of geographic data
+
+
+```{r start exercise 5b}
+
+#####################################
+# 5B
+#####################################
+
+```
 
 Using `SQL`, call into `R` from your relational database a table that includes, for **every R1 and R2 university**:
 
