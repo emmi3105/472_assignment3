@@ -1353,15 +1353,16 @@ The table `census_df` has successfully been written to the relational database a
 
 #### Analysis table
 
-We create a table "analysis_table" that includes the following variables for Ivy League institutions only from the relational database:
+Based on the data on Ivy League universities written to our relational database, we create a data frame `analysis_df`, which has the following columns:
 
-i. University name
-ii. The average rank of the university across 2003, 2013, and 2023
-iii. The average rank of the university's Economics, Political Science, and Sociology programs, if they were ranked
-iv. The current endowment per student (total endowment divided by total number of students), in USD
-v. The average total revenue per student across the years 2015 - 2020, in USD
-vi. The average of the median household income for the County across the years 2015 and 2020, in USD
+i. `Institution`: The name of the Ivy League University
+ii. `Average_Rank`: The average rank of the university across 2003, 2013, and 2023
+iii. `Avg_Econ_PolSc_Soc`: The average rank of the university's Economics, Political Science, and Sociology programmes (if they were ranked)
+iv. `Endowment_Per_Student`: The current endowment per student (total endowment divided by total number of students), in USD
+v. `Rev_Per_Student_2015_2020`: The average total revenue per student across the years 2015 - 2020, in USD
+vi. `Avg_Household_Income_2015_2020`: The average of the median household income for the County across the years 2015 and 2020, in USD
 
+The SQL queries for the extraction and calculation of the variables can be found in the Appendix.
 
 ```{r sql queries for the analysis table}
 
@@ -1448,7 +1449,7 @@ analysis_df <- reduce(list_of_dataframes, merge, by = "Institution", all = TRUE)
 
 #### Visualisations with `ggplot`
 
-We create four plots that show the relationships between two variables from the analysis_table.
+We create four plots that each show the relationship between two variables from the `analysis_df`.
 
 ##### 1. Average university ranking vs. average Econ/PS/Soc ranking
 
@@ -1481,9 +1482,18 @@ first_plot <- ggplot(analysis_df, aes(x = Average_Rank, y = Avg_Econ_PolSc_Soc, 
 first_plot
 ```
 
-**The plot**: Comment on the logarithmic scale of the axes.
+##### 1A: The plot
 
-**The findings**: There seems to be a positive correlation between the overall ranking and the average ranking for the subjects Economics, Political Sciences, and Sociology, which is not surprising. A university that is ranked highly overall is expected to have high rankings in most subjects as well. It should be noted, though, that the overall ranking displayed on the x-axis is averaged over the years 2003, 2013, and 2023, whilst the average subject ranking displayed on the y-axis only refers to the most recent rankings in the subjects Economics, Political Sciences, and Sociology. Thereby, the possibility that the overall ranking changed significantly since 2003 and thus influenced the overall ranking (either positively or negatively) must thereby be considered. It would probably be more informative to retrieve the subject rankings for the three years of interest and then calculate the average.
+**a. Logarithmic scale**: Note that we have used a logarithmic scale for the x and y axes. The reason for this is that the data is mostly concentrated in a small range of values, yet has some significant outliers (particularly Dartmouth College). When dealing with skewed data or data with wide data ranges, it can be helpful to use logarithmic scales for the axes. A linear scale may compress the data at one end and stretch it at the other, making it difficult to visualise patterns. A logarithmic scale ensures that data points across the entire range are more evenly distributed. If the data is skewed, it can help in visualising details in the tail of the distribution that might be compressed in a linear scale.
+
+**b. Regression line**: Note that we have added a yellow line representing the linear regression $lm(y \sim x)$  with
+
+- $y$ = Average Ranking for Economics, Political Sciences, and Sociology, and 
+- $x$ = Average University Ranking (2003, 2013, 2023).
+
+Although we are not able to show causality with a simple linear regression, it can help to include the regression line to visualise the correlation of the x and y variables. However, since we only have a very small data set with merely eight observations, we have added the confidence interval as a grey shaded area, which shows the range of uncertainty associated with the estimated regression parameters. It provides a range within which we can be reasonably confident that the true regression line lies. Hence, if the grey area is relatively wide, the location of the regression line should be put into question. Note that with smaller data sets, confidence intervals tend to be wider, indicating a higher level of uncertainty.
+
+**c. R squared**: We have also included the R-squared of the plot. However, it must be taken into consideration that with small data sets, the R-squared value can be highly sensitive towards singular values. More so, when removing or changing one value, the impact on the R-squared value can be quite large. Hence, the value of the R-squared should be interpreted with caution. 
 
 ```{r R squared for the first plot}
 
@@ -1494,6 +1504,10 @@ model1 <- lm(Avg_Econ_PolSc_Soc ~ Average_Rank, data = analysis_df)
 rsquared_value_1 <- summary(model1)$r.squared
 cat("R-squared Plot 1:", rsquared_value_1, "\n")
 ```
+
+##### 1B: The findings 
+
+There seems to be a positive correlation between the overall ranking and the average ranking for the subjects Economics, Political Sciences, and Sociology, as seen by the positive slope of the regression line. This is not surprising. A university that is ranked highly overall is expected to have high rankings in most subjects as well. It should be noted, though, that the overall ranking displayed on the x-axis is averaged over the years 2003, 2013, and 2023, whilst the average subject ranking displayed on the y-axis only refers to the most recent rankings in the subjects Economics, Political Sciences, and Sociology. Thereby, the possibility that the overall ranking changed significantly since 2003 and thus influenced the overall ranking (either positively or negatively) must thereby be considered. It would probably be more informative to retrieve the subject rankings for the three years of interest and then calculate the average. Furthermore, the analysis has some limitations such as the small size of the data set, which is especially important when interpreting R-squared. In this case, the R-squared is around 0.81 and thereby quite high. However, the small sample size prevents us from deducting causality or even generalisable correlations from the R-squared. 
 
 
 ##### 2. Average university ranking vs. endowment per student
@@ -1527,15 +1541,16 @@ second_plot <- ggplot(analysis_df, aes(x = Average_Rank, y = Endowment_Per_Stude
 second_plot
 ```
 
-**The plot**: Comment on the logarithmic scale of the axes.
+##### 2A: The plot
 
-**The findings**: The findings are somewhat surprising. One might expect universities with high rankings to have larger endowments per students as they firstly might be able to charge higher student fees due to their good reputation and secondly might be ranked so highly due to the availability of large resources that they can invest in the facilities and the quality of teaching. However, this expectation is flawed as it does not consider other factors that influence the relationship between the endowment per student and the overall ranking: 
+**a. Logarithmic scale**: Again, we have used logarithmic scales for the x and y axes due to the reasons described in the first plot.
 
-1. Resource Allocation: A high endowment doesn't necessarily guarantee effective resource allocation that directly influences rankings. Some universities might have large endowments but allocate resources differently, prioritising spending on specific aspects such as faculty, research, infrastructure, or student programmes. This might impact their rankings differently.
+**b. Regression line**: Again, we have added a yellow line representing the linear regression $lm(y \sim x)$ with
 
-2. Ranking Criteria: University rankings are based on various criteria, including academic reputation, faculty-to-student ratio, research output, and more. Endowment per student is just one financial aspect and might not capture the broader factors influencing rankings.
+- $y$ = Endowment per Student, in thousand USD, and
+- $x$ = Average University Ranking (2003, 2013, 2023).
 
-3. Other factors: Many other factors might explain the size of the endowment in relationship to the university ranking. Notably, Princeton University has a very high endowment per student. Yet one should note that Princeton has a relatively small student body. However, the high endowment might stem from other factors such as historical funding and donations, Alumni support, financial aid and tuition fees etc. The analysis of the correlation between ranking and endowment per student necessitates a more complex analysis of the factors explaining the composition of rankings and endowments.
+**c. R squared**:
 
 ```{r R squared for the second plot}
 
@@ -1547,7 +1562,17 @@ rsquared_value_2 <- summary(model2)$r.squared
 cat("R-squared Plot 2:", rsquared_value_2, "\n")
 ```
 
+##### 2B: The findings 
 
+The plot shows a slightly negative correlation between the average university ranking and the endowment per student. The findings are somewhat surprising. One might expect universities with high rankings to have larger endowments per students as they firstly might be able to charge higher student fees due to their good reputation and secondly might be ranked so highly due to the availability of large resources that they can invest in the facilities and the quality of teaching. However, this expectation is flawed as it does not consider other factors that influence the relationship between the endowment per student and the overall ranking: 
+
+a. Resource Allocation: A high endowment doesn't necessarily guarantee effective resource allocation that directly influences rankings. Some universities might have large endowments but allocate resources differently, prioritising spending on specific aspects such as faculty, research, infrastructure, or student programmes. This might impact their rankings differently.
+
+b. Ranking Criteria: University rankings are based on various criteria, including academic reputation, faculty-to-student ratio, research output, and more. Endowment per student is just one financial aspect and might not capture the broader factors influencing rankings.
+
+c. Other factors: Many other factors might explain the size of the endowment in relationship to the university ranking. For instance, high endowments might stem from historical funding and donations, Alumni support, or financial aid and tuition fees. Possibly, these factors do not significantly or even negatively correlate with the university ranking. The analysis of the correlation between ranking and endowment per student necessitates a more complex analysis of the factors explaining the composition of rankings and endowments.
+
+Note, however, that the slope of the regression is relatively small, the confidence interval is quite wide, and the R-squared is nearly zero. Without expanding the analysis (e.g., by varying the sample size, retrieving the adjusted R-squared, or extending the simple to a multiple regression), the meaningfullness of the correlation can strongly be questioned.
 
 ##### 3. Average endowment per student vs average median household income
 
@@ -1581,9 +1606,16 @@ third_plot
 ```
 
 
-**The plot**: Comment on the logarithmic scale of the axes.
+##### 3A: The plot
 
-**The findings**: There seems to be a slight positive correlation between the average median household income for the county and the endowment per student.
+**a. Logarithmic scale**: Again, we have used logarithmic scales for the x and y axes due to the reasons described in the first plot.
+
+**b. Regression line**: Again, we have added a yellow line representing the linear regression $lm(y \sim x)$ with
+
+- $y$ = Average Median Household Income for the County (2015 and 2020), in thousand USD, and
+- $x$ = Endowment per Student, in thousand USD.
+
+**c. R squared**:
 
 ```{r R squared for the third plot}
 
@@ -1595,6 +1627,19 @@ rsquared_value_3 <- summary(model3)$r.squared
 cat("R-squared Plot 3:", rsquared_value_3, "\n")
 ```
 
+##### 3B: The findings 
+
+There seems to be a slight positive correlation between the average median household income for the county and the endowment per student, which is not surprising. A rich county might facilitate an attractive environment for wealthy institutions of higher educations or even positively contribute to a university's financial means. Potential explanations for that could be:
+
+a. Wealthy Donors and Alumni: Universities located in affluent areas may have a higher likelihood of attracting wealthy donors from the region and alumni who contribute to the endowment as they might prefer to financially support local institutions or their alma mater.
+
+b. Local Economic Conditions: The economic prosperity of the local community could influence the financial health of the university. A thriving local economy may lead to increased donations and support for the university, contributing to a higher endowment.
+
+c. Tuition and Enrollment: Universities in wealthier areas may have higher tuition fees, contributing to a larger revenue stream that can be directed to the endowment. A university's ability to attract students willing to pay higher tuition may also be influenced by the economic demographics of the area.
+
+The other way around, it might also be reasonable to expect universities with higher endowments to positively contribute to the regional economy to a larger extent than universities with smaller endowments. For instance, wealthy universities might positively affect the local real estate development, contribute to job creation in the region, facilitate research and innovation as well as entrepreneurship and create higher visitor and student spendings.
+
+Again, the R-squared of our plotted regression line is quite small and there seems to be a lot of volatility and uncertainty in the relationship of the two variables as shown by the wide confidence interval. Hence, it is not determinable, which variable will affect the other or whether the positive relationship is random or not.
 
 ##### 4. Average revenue per student vs average median household income
 
@@ -1627,6 +1672,17 @@ fourth_plot <- ggplot(analysis_df, aes(y = Avg_Household_Income_2015_2020/1000, 
 fourth_plot
 ```
 
+##### 4A: The plot
+
+**a. Logarithmic scale**: Again, we have used logarithmic scales for the x and y axes due to the reasons described in the first plot.
+
+**b. Regression line**: Again, we have added a yellow line representing the linear regression $lm(y \sim x)$ with
+
+- $y$ = Average Median Household Income for the County (2015 and 2020), in thousand USD, and
+- $x$ = Average Revenue Per Student (2015 - 2020), in thousand USD.
+
+**c. R squared**:
+
 ```{r R squared for the fourth plot}
 
 # Fit a linear regression model
@@ -1636,6 +1692,19 @@ model4 <- lm(Avg_Household_Income_2015_2020 ~ Rev_Per_Student_2015_2020, data = 
 rsquared_value_4 <- summary(model4)$r.squared
 cat("R-squared Plot 4:", rsquared_value_4, "\n")
 ```
+
+
+##### 4B: The findings
+
+Again, we find a slight positive correlation between the average revenue per student and the average median household income of the county that the university is located in. Revenue and endowment of a university are likely to be positively correlated with one another as universities with higher average revenues may have larger endowments and investment portfolios. Since we found a positive correlation between the average endowment per student and the average median household income in the previous plot, these findings are not surprising. The explanations for the positive relationship could be similar to the ones previously elaborated on: 
+
+a. Research Funding and Grants: Universities in affluent regions may have greater access to research funding and grants, leading to additional revenue.
+
+b. Economic Stability: The overall economic stability of the region can impact the ability of families to invest in education. In economically stable areas, families may be more willing to allocate funds for higher education.
+
+c. Tuition and Fees: Universities in wealthier areas may be able to set higher tuition and fees, contributing to higher revenue per student. Affluent students in these regions may be more willing and able to pay higher tuition costs.
+
+As in the previous plots, we cannot rule out that these observations are random, neither are generalised conclusions possible due to a low R squared, a small data set and a large confidence interval.
 
 
 
@@ -1650,15 +1719,14 @@ cat("R-squared Plot 4:", rsquared_value_4, "\n")
 
 ```
 
-Using `SQL`, call into `R` from your relational database a table that includes, for **every R1 and R2 university**:
+Based on the data on all R1 and R2 universities written to our relational database, we create a data frame `analysis_table_geography`, which has the following columns:
 
-i. University name
-ii. Geographic coordinates
-iii. Status (public vs. private)
-iv. Whether the university is an Ivy League institution
+i. `Institution`: The name of the university
+ii. `Geographic_Location`: The geographic coordinates of the (main) university campus
+iii. `Control`: The university's status (public or private)
+iv. `Ivy_League`: A binary variable indicating whether the university is an Ivy League institution
 
-
-#### Analysis table 
+The SQL queries for the extraction and calculation of the variables can be found in the Appendix.
 
 ```{r sql queries for the geography table}
 
@@ -1687,11 +1755,13 @@ analysis_table_coordinates <- analysis_table_coordinates[complete.cases(analysis
 geography_sf <- st_as_sf(analysis_table_coordinates, coords = c("longitude", "latitude"), crs = 4326)
 ```
 
-Retrieve a [shapefile](https://en.wikipedia.org/wiki/Shapefile) of the United States using the `tigris` package (or, if you prefer the `tidycensus` package, but `tigris` is easier). Using either the `tmap` package or the `ggmap` package, include in the main section of your `.html` a visually clear and compelling map that is appropriately labelled which shows:
+Then, we use the `tmap` package to plot the universities on a map of the US. The map shows:
 
 i. every R1 and R2 university, excluding the Ivy League institutions, as a point
-ii. where the colour of the points varies by status (public vs. private)
-iii. Ivy League universities as contrasting points 
+ii. where the colour of the points varies by status:
+    - Private (non-profit) universities: <span style="color: #FFC20A;">**orange**</span> word.
+    - Public universities: <span style="color: #F781BF;">**pink**</span> word.
+iii. Ivy League universities as larger <span style="color: #FF0000;">**red**</span> points 
 
 
 
@@ -1746,43 +1816,44 @@ Is there any notable pattern to where the Ivy League universities concentrated? 
 
 #### Discussion of the Map
 
-##### 1. Ivy Leagues are all on the East Coast
+##### 1. Concentration of the Ivy Leagues on the East Coast
 
-As seen in the map above, the Ivy League universities are all concentrated in the East Coast of the United States.
+As seen in the map above, the Ivy League universities are all concentrated in the East Coast of the United States, particularly in New England and the Mid-Atlantic region.
 
-##### 2. Distribution of public and private universities
+a. Colonial History: Many Ivy League universities were established during the colonial period when the East Coast was a primary center of European settlement. For example, Harvard University, the oldest Ivy League institution, was founded in 1636 in Cambridge, Massachusetts (Source: [Wikipedia](https://en.wikipedia.org/wiki/Harvard_University)).
 
-Public and private universities seemingly spread across the country. However, when displaying the OpenStreetMap instead of the default Esri.WorldGrayCanvas (can be selected by clicking on the filter icon in the top left corner) and zooming in, we can notice that most private universities are located in close proximity to larger cities (such as Los Angeles, Dallas, Chicago, Washington DC, New York City, Boston).
+b. Cultural and Economic Centers: Cities along the East Coast, such as Boston, New York City, and Philadelphia, have historically been cultural and economic centers. The presence of these cities provided Ivy League institutions with access to resources, cultural activities, and influential networks.
+
+c. Historical Development of Endowments and Philanthropy: The East Coast has been home to significant wealth and philanthropy throughout history (Source: [Wikipedia](https://en.wikipedia.org/wiki/Economic_history_of_the_United_States)). Potentially, wealthy individuals and families in the region have contributed to the establishment and growth of Ivy League universities through endowments and donations.
+
+d. Network Effects: The East Coast's concentration of elite universities likely created a network effect, attracting students, faculty, and researchers to the region. The presence of multiple prestigious institutions might have inspired the establishments of other prestigious institutions of higher education in the area.
+
+##### 2. Concentration of private universities in urban areas
+
+Public and private universities are seemingly spread across the country. However, when displaying the map in the mode `OpenStreetMap` instead of the default mode `Esri.WorldGrayCanvas`, and zooming in, we can notice that most private universities are located in close proximity to larger cities, such as Los Angeles, Dallas, Chicago, Washington DC, New York City, and Boston.
 
 Several factors might explain this phenomenon, such as:
 
-i. Access to Resources: Larger cities often offer better access to resources such as libraries, research facilities, cultural institutions, and industry partnerships. Private universities, which often rely on tuition and private funding, may be attracted to urban areas where these resources are abundant.
+a. Access to Resources: Larger cities might offer better access to resources such as libraries, research facilities, cultural institutions, and industry partnerships. Private universities, which often rely on tuition and private funding, may be attracted to urban areas where these resources are abundant.
 
-ii. Industry Connections: Proximity to major urban centers provides opportunities for private universities to establish strong connections with industries, businesses, and organisations. This can lead to collaborative research, internships, and employment opportunities for students.
+b. Industry Connections: Proximity to major urban centers provides opportunities for private universities to establish strong connections with industries, businesses, and organisations.
 
-iii. Networking Opportunities: Being close to a city facilitates networking opportunities for students and alumni. Private universities often emphasize networking and alumni relations, and being situated near a city with a robust job market can enhance students' chances of securing internships and jobs.
+c. Networking Opportunities: Being close to a city facilitates networking opportunities for students and alumni. Private universities often declare networking and alumni relations as their unique selling point.
 
-iv. International Attraction: Cities tend to attract a diverse population, including international students. Private universities, which may have a higher reliance on tuition revenue, may be attracted to urban areas for the potential to attract a broader and more diverse student body.
-
-v. Philanthropy and Donor Base: Major cities are often home to a concentration of wealthy individuals and corporations. Private universities may be strategically located in proximity to potential donors, facilitating fundraising efforts and building a strong financial foundation.
-
-However, it should be noted that in order to explain why private universities seemingly choose more urban locations, further research of the proposed factors would be necessary.
-
-##### 3. Under-researched areas
-
-It is noticeable, that the universities are mainly concentrated along the coastlines and in the East of the US. The Midwest/West and Alaska are relatively under-researched. Several factors might explain that observation:
-
-i. Historical Development: Many of the oldest and most prestigious universities in the United States, such as Harvard and Princeton, were established in the colonial period and early years of the nation's history (Source: [Wikipedia](https://en.wikipedia.org/wiki/History_of_higher_education_in_the_United_States#:~:text=Explosive%20growth%20in%20the%20number,regional%20campuses%20around%20the%20state.)). These institutions often originated in the eastern part of the country. Potentially, the presence of these early institutions might have influenced the establishment of additional universities in nearby areas.
-
-ii. Population Centers: The eastern and western coasts of the United States are home to some of the country's largest and most populous cities (Source: [Wikipedia](https://en.wikipedia.org/wiki/List_of_United_States_cities_by_population)). Potentially, Universities might tend to develop in areas with large population centers.
-
-iii. Economic Opportunities: Coastal areas might to have larger economic opportunities, including access to industries, businesses, and financial centers, potentially inspiring the establishment of higher education institutions.
-
-iv. Transportation Infrastructure: As visualised in this [map of the US railway system](https://github.com/emmi3105/472_assignment3/blob/385882f6fed3a176ddc109860cf51011527df8c8/railway_map.png) the US American public transportation infrastructure is better developed in the Eastern part of the US compared to the Midwest. Potentially, access to public transportation is a motivating factor for establishing higher education institutions at specific places.
+d. International Attraction: Cities tend to attract a diverse population, including international students. Private universities, which may have a higher reliance on tuition revenue, could be attracted to urban areas for the potential to attract a more international student body.
 
 
+##### 3. The Midwest as an under-researched area
 
+It is noticeable, that the universities are mainly concentrated along the coastlines and in the East of the US or along the coastlines. The Midwest/West and Alaska are relatively under-researched. Several factors might explain that observation:
 
+a. Historical Development: As previously mentioned, many of the most prestigious universities in the United States, such as Harvard, were established in the colonial period on the East Coast. Potentially, the presence of these early institutions might have influenced the establishment of additional universities in nearby areas.
+
+b. Population Centers: The eastern and western coasts of the United States are home to some of the country's largest and most populous cities (Source: [Wikipedia](https://en.wikipedia.org/wiki/List_of_United_States_cities_by_population)). Potentially, Universities might tend to develop in areas with large population centers.
+
+c. Economic Opportunities: Coastal areas might to have larger economic opportunities, including access to industries, businesses, and financial centers, potentially inspiring the establishment of higher education institutions.
+
+d. Transportation Infrastructure: The public transportation infrastructure is better developed in the Eastern part of the US compared to the Midwest (See: [Railway Map](https://www.arcgis.com/apps/mapviewer/index.html?webmap=96ec03e4fc8546bd8a864e39a2c3fc41)). Potentially, access to public transportation is a motivating factor for establishing higher education institutions at specific places.
 
 
 ## Data
