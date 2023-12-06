@@ -1,7 +1,7 @@
 ---
 title: "Assignment 3"
 author: "Student ID: 201903536"
-date: "30 November 2023"
+date: "7 December 2023"
 output: html_document
 ---
 
@@ -30,7 +30,6 @@ library(tigris)
 library(stringr)
 library(tmap)
 library(sf)
-library(htmlwidgets)
 
 ```
 
@@ -68,9 +67,7 @@ db <- dbConnect(RSQLite::SQLite(), "universities_db.sqlite")
 print(file.exists("universities_db.sqlite"))
 ```
 
-As the output of the code chunk above is "TRUE", the database `universities_db.sqlite` exists.
-
-**Note**: The primary key that will be used throughout this assignment is the variable "Institution", which refers to the name of the university.
+**Note**: The primary key that will be used throughout this assignment is the variable `Institution`, which refers to the name of the university.
 
 ## Exercise 2
 
@@ -1858,18 +1855,30 @@ d. Transportation Infrastructure: The public transportation infrastructure is be
 
 ## Data
 
+The data scraped from [Wikipedia](https://en.wikipedia.org/wiki/List_of_research_universities_in_the_United_States) and the [Academic Ranking of World Universities](https://www.shanghairanking.com/) as well as the data retrieved from the [ProPublica API](https://projects.propublica.org/nonprofits/api) and the [US Census Bureau API](https://walker-data.com/tidycensus/) were saved as global variables after scraping and stored as RData files. When running this code on a local machine, please refer to the [GitHub repository](https://github.com/emmi3105/472_assignment3) to retrieve the RData files. 
+
+
+## Code Sources
+
+[1] ggplot2 package: [RDocumentation](https://www.rdocumentation.org/packages/ggplot2/versions/3.4.4)
+
+[2] httr package: [RDocumentation](https://www.rdocumentation.org/packages/httr/versions/1.4.7)
+
+[3] RSelenium package: [RDocumentation](https://www.rdocumentation.org/packages/RSelenium/versions/1.7.9)
+
+[4] tigris package: [RDocumentation](https://www.rdocumentation.org/packages/tigris/versions/2.0.4)
+
+[5] tmap package: [cran.r-project](https://cran.r-project.org/web/packages/tmap/vignettes/tmap-getstarted.html#multiple-shapes-and-layers)
+
+
+## Appendix: All code in this assignment
+
 ```{r close the database connection}
 
 # Close the database connection
 dbDisconnect(db)
 ```
 
-
-## Sources
-
-
-
-## Appendix: All code in this assignment
 
 ```{r ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE} 
 
