@@ -1,7 +1,7 @@
 ---
 title: "Assignment 3"
 author: "Student ID: 201903536"
-date: "7 December 2023"
+date: "6 December 2023"
 output: html_document
 ---
 
@@ -55,7 +55,7 @@ The GitHub repository for **this assignment** can be found [here](https://github
 ```{r create database, echo=TRUE}
 
 # Create database
-db <- dbConnect(RSQLite::SQLite(), "universities_db.sqlite")
+db <- dbConnect(RSQLite::SQLite(), "data/universities_db.sqlite")
 ```
 
 
@@ -64,7 +64,7 @@ db <- dbConnect(RSQLite::SQLite(), "universities_db.sqlite")
 ```{r check existence of database, echo=TRUE}
 
 # Check existence of the database
-print(file.exists("universities_db.sqlite"))
+print(file.exists("data/universities_db.sqlite"))
 ```
 
 **Note**: The primary key that will be used throughout this assignment is the variable `Institution`, which refers to the name of the university.
@@ -90,7 +90,7 @@ print(file.exists("universities_db.sqlite"))
 
 #### Automatic webscraping function for 2a and b
 
-I combined exercise 2a and 2b and directly wrote and executed a webscraping function called `scrape_wikipedia_tables()` that returns a data frame with the following eight variables: 
+We combined exercise 2a and 2b and directly wrote and executed a webscraping function called `scrape_wikipedia_tables()` that returns a data frame with the following eight variables: 
 
 i. `Institution`: The university’s name, which will be used as the primary key
 ii. `Control`: The university’s status (public or private)
@@ -317,13 +317,13 @@ scraped_wikipedia_df <- scrape_wikipedia_tables(url)
 assign("scraped_wikipedia_df", scraped_wikipedia_df, envir = .GlobalEnv)
 
 # Save the global variable to an RData file
-save(scraped_wikipedia_df, file = "scraped_wikipedia_df.RData")
+save(scraped_wikipedia_df, file = "data/scraped_wikipedia_df.RData")
 ```
 
 ```{r create a copy of scraped_wikipedia_universities}
 
 # Load global variables
-load("scraped_wikipedia_df.RData")
+load("data/scraped_wikipedia_df.RData")
 
 # Copy the scraped table to avoid modifying the original data
 universities_table <- scraped_wikipedia_df
@@ -351,10 +351,10 @@ universities_table$Endowment <- sapply(universities_table$Endowment, transform_e
 
 **Geographic Location**: Some universities have several sets of coordinates on their Wikipedia sites. For instance, there are universities with multiple campuses whose geographic locations are all noted down on Wikipedia. Therefore, the function above includes a line of code that specifies that only the very first set of coordinates is appended to the data frame. Thereby, the geographic location column holds simplified data that potentially might not reflect the location of the entire university.
 
-**Endowment**: Not all universities we are interested in include information on the `endowment` on their Wikipedia website. However, some university Wikipedia articles include data on the university's `budget.` Since `endowment` and `budget` likely refer to the same variable, we have included an if-statement in the function above, that specifies the following: If a university's Wikipedia article does not hold information on the 
+**Endowment**: Not all universities we are interested in include information on the `endowment` on their Wikipedia website. However, some university Wikipedia articles include data on the university's `budget`. Since `endowment` and `budget` likely refer to the same variable, we have included an if-statement in the webscraping function, that specifies the following: If a university's Wikipedia article does not hold information on the 
 `endowment`, the function will look whether there is information on the `budget` and use this data instead. Nonetheless, there are a few universities that have neither the `endowment` nor the `budget` declared on Wikipedia. For those instances, the endowment variable in our table will hold a missing value as specified in the section below.
 
-**Students**: On some websites, the total student body is not declared in a comprehensive way because it is split up by the different campuses of the university. Therefore, it is more efficient to scrape the data by adding the number of postgraduates and undergraduates instead of writing a function that can add all of the student bodies from different campuses of the individual universities. To ensure that also universities that only have postgraduates or undergraduates, and universities which only have a number for the total student body on their website, the code is modified. Firstly, an if-statement will ensure that for those instances with NA's for either postgraduates or undergraduates, the number from the variable without the NA is declared as the total student body. Secondly, for the instances that only include data on the total student body on the website, another statement is formulated that scrapes the `Students` data from the Wikipedia website and then adds this to the variable in our scraped data set.
+**Students**: On some websites, the total student body is not declared in a comprehensive way because it is split up by the different campuses of the university. Therefore, it is more efficient to scrape the data by adding the number of postgraduates and undergraduates instead of writing a function that can add all of the student bodies from different campuses of the individual universities. To ensure that the data for universities that only have postgraduates or undergraduates, and universities, which only have a number for the total student body on their website, are scraped correctly, the code is modified. Firstly, an if-statement will ensure that for those instances with NA's for either postgraduates or undergraduates, the number from the variable without the NA is declared as the total student body. Secondly, for the instances that only include data on the total student body on the website, another statement is formulated that scrapes the `Students` data from the Wikipedia website and then adds this to the variable in our scraped data set.
 
 #### Notes on missing values
 
@@ -380,17 +380,17 @@ universities_table$Endowment <- sapply(universities_table$Endowment, transform_e
 ```{r read in ivyleague.csv}
 
 # Read the CSV file into a data frame
-ivyleagues <- read.csv("ivyleague.csv")
+ivyleagues <- read.csv("data/ivyleague.csv")
 ```
 
-We have stored `ivyleague.csv` as a data frame called `ivyleagues`. Which has eight observations and the following four variables:
+We have stored `ivyleague.csv` as a data frame called `ivyleagues`, which has eight observations and the following four variables:
 
 i. `uni_name`: a **shortened** version of each university's name
 ii. `county`: the county in which the university's main campus is located 
 iii. `state`: the state in which the university's main campus is located
-iv. `ein`: the Employer Identification Number
+iv. `ein`: the Employer Identification Number (EIN)
 
-As the primary key - `Institution` - in the relational database that we will create later is the full name of the university, we created a new variable in the `ivyleagues` data frame that gives the full name instead of the shortened version for each Ivy League. We store this variable under the column name `Institution`. This ensures that we can later properly gather and bind data from different tables within the relational database. 
+The primary key in the relational database that we will later add our tables to is the `Institution` variable, which refers to the full name of the university. Hence, we created a new variable in the `ivyleagues` data frame that gives the full name instead of the shortened version for each Ivy League. We store this variable under the column name `Institution`. This ensures that we can later properly query the relational database. 
 
 ```{r add the full names to the universities in ivyleagues}
 
@@ -468,7 +468,7 @@ if (length(unique(universities_table$Institution)) == length(universities_table$
 # Check if the columns in universities_table each represent one of the 11 variables
 if (ncol(universities_table) == 11) {
   column_names <- colnames(universities_table)
-  column_answer <- sprintf("The dataframe has %d columns, which each represent one variable:", ncol(universities_table))
+  column_answer <- sprintf("The dataframe has %d columns, which each represents one variable:", ncol(universities_table))
   formatted_names <- sprintf("Column %d: %s", 
                              seq_along(column_names), 
                              column_names)
@@ -715,14 +715,14 @@ scraped_ivyleagues_df <- scrape_university_ranking_global()
 assign("scraped_ivyleagues_df", scraped_ivyleagues_df, envir = .GlobalEnv)
 
 # Save the global variable to an RData file
-save(scraped_ivyleagues_df, file = "scraped_ivyleagues_df.RData")
+save(scraped_ivyleagues_df, file = "data/scraped_ivyleagues_df.RData")
 ```
 
 
 ```{r create a copy of scraped_ivyleagues_df}
 
 # Load global variables
-load("scraped_ivyleagues_df.RData")
+load("data/scraped_ivyleagues_df.RData")
 
 # Copy the scraped table to avoid modifying the original data
 ivyleagues_ranks <- scraped_ivyleagues_df
@@ -757,9 +757,9 @@ dbWriteTable(db, "ivyleagues_ranks_df", ivyleagues_ranks, overwrite = TRUE)
 ```
 
 
-```{r check the existence of the ivyleagues_ranks table, echo=TRUE}
+```{r check the existence of ivyleagues_ranks_df, echo=TRUE}
 
-# Check the existence of the ivyleagues_ranks table
+# Check the existence of the ivyleagues_ranks_df table
 check_table(db, "ivyleagues_ranks_df")
 ```
 The table `ivyleagues_ranks_df` has successfully been written to the relational database and has the dimensions and column names that we expected. Again, the primary key is the `Institution` variable.
@@ -837,7 +837,7 @@ search_general_ranking <- function(term) {
 
 ```{r filter for social sciences}
 
-# A function that filters for the social sciences in the ranking options (with js)
+# A function that filters for the social sciences in the ranking options
 filter_social_sciences <- function() {
   
   # Click the filter field
@@ -996,14 +996,14 @@ Sys.sleep(2)
 assign("social_science_ranks", social_science_ranks, envir = .GlobalEnv)
 
 # Save the global variable to an RData file
-save(social_science_ranks, file = "social_science_ranks.RData")
+save(social_science_ranks, file = "data/social_science_ranks.RData")
 ```
 
 
 ```{r create a copy of social_science_ranks}
 
 # Load global variables
-load("social_science_ranks.RData")
+load("data/social_science_ranks.RData")
 
 # Copy the scraped table to avoid modifying the original data
 social_science_ranks_df <- social_science_ranks
@@ -1031,7 +1031,7 @@ dbWriteTable(db, "social_science_ranks_df", social_science_ranks_df, overwrite =
 
 ```{r check the existence of the social_science_ranks_df table, echo=TRUE}
 
-# Check the existence of the social_science_ranks table
+# Check the existence of the social_science_ranks_df table
 check_table(db, "social_science_ranks_df")
 ```
 The table `social_science_ranks_df` has successfully been written to the relational database and has the dimensions and column names that we expected. Again, the primary key is the `Institution` variable.
@@ -1162,14 +1162,14 @@ scraped_finance_df <- do.call(rbind, result_list)
 assign("scraped_finance_df", scraped_finance_df, envir = .GlobalEnv)
 
 # Save the global variable to an RData file
-save(scraped_finance_df, file = "scraped_finance_df.RData")
+save(scraped_finance_df, file = "data/scraped_finance_df.RData")
 ```
 
 
 ```{r load scraped_finance_df.RData}
 
 # Load global variables
-load("scraped_finance_df.RData")
+load("data/scraped_finance_df.RData")
 
 # Copy the scraped table to avoid modifying the original data
 finance_df <- scraped_finance_df
@@ -1216,7 +1216,7 @@ dbWriteTable(db, "finance_df", finance_df, overwrite = TRUE)
 
 ```{r check the existence of the finance_df table, echo=TRUE}
 
-# Check the existence of the ivyleagues_ranks table
+# Check the existence of the finance_df table
 check_table(db, "finance_df")
 ```
 The table `finance_df` has successfully been written to the relational database and has the dimensions and column names that we expected.
@@ -1242,7 +1242,7 @@ census_api_key(apikey)
 
 #### Extract the median estimated household income of all counties in the US, 2015 and 2020
 
-We use the `tidycensus` package to access the API of the US Census Bureau. We write a function that retrieves the names of all the Counties in the US and their estimated median household income for every county for both 2015 and 2020 (based on the American Community Survey (ACS)). 
+We use the `tidycensus` package to access the API of the US Census Bureau. We write a function that retrieves the names of all the counties in the US and the estimated median household income for every county for both 2015 and 2020 (based on the American Community Survey (ACS)). 
 
 To a table `census_df`, we add the data retrieved from the US Census Bureau API for each Ivy League university. More precisely, `census_df` has the following four columns:
 
@@ -1264,16 +1264,16 @@ assign("median_household_income_15", median_household_income_15, envir = .Global
 assign("median_household_income_20", median_household_income_20, envir = .GlobalEnv)
 
 # Save the global variable to an RData file
-save(median_household_income_15, file = "median_household_income_15.RData")
-save(median_household_income_20, file = "median_household_income_20.RData")
+save(median_household_income_15, file = "data/median_household_income_15.RData")
+save(median_household_income_20, file = "data/median_household_income_20.RData")
 ```
 
 
 ```{r load median_household_income_15.RData and median_household_income_20.RData}
 
 # Load global variables
-load("median_household_income_15.RData")
-load("median_household_income_20.RData")
+load("data/median_household_income_15.RData")
+load("data/median_household_income_20.RData")
 
 # Copy the scraped table to avoid modifying the original data
 income_15_df <- median_household_income_15
@@ -1481,14 +1481,14 @@ first_plot
 
 ##### 1A: The plot
 
-**a. Logarithmic scale**: Note that we have used a logarithmic scale for the x and y axes. The reason for this is that the data is mostly concentrated in a small range of values, yet has some significant outliers (particularly Dartmouth College). When dealing with skewed data or data with wide data ranges, it can be helpful to use logarithmic scales for the axes. A linear scale may compress the data at one end and stretch it at the other, making it difficult to visualise patterns. A logarithmic scale ensures that data points across the entire range are more evenly distributed. If the data is skewed, it can help in visualising details in the tail of the distribution that might be compressed in a linear scale.
+**a. Logarithmic scale**: Note that we have used a logarithmic scale for the x and y axes. The reason for that lies in the data, which is mostly concentrated in a small range of values, yet has some outliers (particularly Dartmouth College). When dealing with skewed data or data with wide data ranges, it can be helpful to use logarithmic scales for the axes. A linear scale may compress the data at one end and stretch it at the other, making it difficult to visualise patterns. A logarithmic scale ensures that data points across the entire range are more evenly distributed. If the data is skewed, it can help in visualising details in the tail of the distribution that might be compressed in a linear scale.
 
 **b. Regression line**: Note that we have added a yellow line representing the linear regression $lm(y \sim x)$  with
 
 - $y$ = Average Ranking for Economics, Political Sciences, and Sociology, and 
 - $x$ = Average University Ranking (2003, 2013, 2023).
 
-Although we are not able to show causality with a simple linear regression, it can help to include the regression line to visualise the correlation of the x and y variables. However, since we only have a very small data set with merely eight observations, we have added the confidence interval as a grey shaded area, which shows the range of uncertainty associated with the estimated regression parameters. It provides a range within which we can be reasonably confident that the true regression line lies. Hence, if the grey area is relatively wide, the location of the regression line should be put into question. Note that with smaller data sets, confidence intervals tend to be wider, indicating a higher level of uncertainty.
+Although we are not able to show causality with a simple linear regression, it can help to include the regression line to visualise the correlation of the x and y variables. Since we only have a very small data set with merely eight observations, we have added the confidence interval as a grey shaded area, which shows the range of uncertainty associated with the estimated regression parameters. It provides a range within which we can be reasonably confident that the true regression line lies. Hence, if the grey area is relatively wide, the location of the regression line should be put into question. Note that with smaller data sets, confidence intervals tend to be wider, indicating a higher level of uncertainty.
 
 **c. R squared**: We have also included the R-squared of the plot. However, it must be taken into consideration that with small data sets, the R-squared value can be highly sensitive towards singular values. More so, when removing or changing one value, the impact on the R-squared value can be quite large. Hence, the value of the R-squared should be interpreted with caution. 
 
@@ -1504,7 +1504,7 @@ cat("R-squared Plot 1:", rsquared_value_1, "\n")
 
 ##### 1B: The findings 
 
-There seems to be a positive correlation between the overall ranking and the average ranking for the subjects Economics, Political Sciences, and Sociology, as seen by the positive slope of the regression line. This is not surprising. A university that is ranked highly overall is expected to have high rankings in most subjects as well. It should be noted, though, that the overall ranking displayed on the x-axis is averaged over the years 2003, 2013, and 2023, whilst the average subject ranking displayed on the y-axis only refers to the most recent rankings in the subjects Economics, Political Sciences, and Sociology. Thereby, the possibility that the overall ranking changed significantly since 2003 and thus influenced the overall ranking (either positively or negatively) must thereby be considered. It would probably be more informative to retrieve the subject rankings for the three years of interest and then calculate the average. Furthermore, the analysis has some limitations such as the small size of the data set, which is especially important when interpreting R-squared. In this case, the R-squared is around 0.81 and thereby quite high. However, the small sample size prevents us from deducting causality or even generalisable correlations from the R-squared. 
+There seems to be a positive correlation between the overall ranking and the average ranking for the subjects Economics, Political Sciences, and Sociology, as seen by the positive slope of the regression line. This is not surprising. A university that is ranked highly overall is expected to have high rankings in most subjects as well. It should be noted, though, that the overall ranking displayed on the x-axis is averaged over the years 2003, 2013, and 2023, whilst the average subject ranking displayed on the y-axis only refers to the most recent rankings in the subjects Economics, Political Sciences, and Sociology. Thereby, the possibility that the overall ranking changed significantly since 2003 and thus influenced the overall ranking (either positively or negatively) must be considered. It would probably be more informative to retrieve the subject rankings for the three years of interest and then calculate the average. Furthermore, the analysis has some limitations such as the small size of the data set, which is especially important when interpreting R-squared. In this case, the R-squared is around 0.81 and thereby quite high. However, the small sample size prevents us from deducting causality or even generalisable correlations from the R-squared. 
 
 
 ##### 2. Average university ranking vs. endowment per student
@@ -1626,7 +1626,7 @@ cat("R-squared Plot 3:", rsquared_value_3, "\n")
 
 ##### 3B: The findings 
 
-There seems to be a slight positive correlation between the average median household income for the county and the endowment per student, which is not surprising. A rich county might facilitate an attractive environment for wealthy institutions of higher educations or even positively contribute to a university's financial means. Potential explanations for that could be:
+There seems to be a slight positive correlation between the average median household income for the county and the endowment per student, which is not surprising. A rich county might facilitate an attractive environment for wealthy institutions of higher education or even positively contribute to a university's financial means. Potential explanations for that could be:
 
 a. Wealthy Donors and Alumni: Universities located in affluent areas may have a higher likelihood of attracting wealthy donors from the region and alumni who contribute to the endowment as they might prefer to financially support local institutions or their alma mater.
 
@@ -1756,8 +1756,8 @@ Then, we use the `tmap` package to plot the universities on a map of the US. The
 
 i. every R1 and R2 university, excluding the Ivy League institutions, as a point
 ii. where the colour of the points varies by status:
-    - Private (non-profit) universities: <span style="color: #FFC20A;">**orange**</span> word.
-    - Public universities: <span style="color: #F781BF;">**pink**</span> word.
+    - Private (non-profit) universities: <span style="color: #FFC20A;">**orange**</span> point.
+    - Public universities: <span style="color: #F781BF;">**pink**</span> point.
 iii. Ivy League universities as larger <span style="color: #FF0000;">**red**</span> points 
 
 
@@ -1809,13 +1809,12 @@ geographic_plot
 
 
 
-Is there any notable pattern to where the Ivy League universities concentrated? What about private and public universities? Do any parts of the United States appear particularly under-resourced in terms of research universities? How might you explain the patterns you observe?
 
 #### Discussion of the Map
 
 ##### 1. Concentration of the Ivy Leagues on the East Coast
 
-As seen in the map above, the Ivy League universities are all concentrated in the East Coast of the United States, particularly in New England and the Mid-Atlantic region.
+As seen in the map above, the Ivy League universities are all concentrated in the East Coast of the United States, particularly in New England and the Mid-Atlantic region. Potential explanations for this phenomenon could be:
 
 a. Colonial History: Many Ivy League universities were established during the colonial period when the East Coast was a primary center of European settlement. For example, Harvard University, the oldest Ivy League institution, was founded in 1636 in Cambridge, Massachusetts (Source: [Wikipedia](https://en.wikipedia.org/wiki/Harvard_University)).
 
@@ -1827,7 +1826,7 @@ d. Network Effects: The East Coast's concentration of elite universities likely 
 
 ##### 2. Concentration of private universities in urban areas
 
-Public and private universities are seemingly spread across the country. However, when displaying the map in the mode `OpenStreetMap` instead of the default mode `Esri.WorldGrayCanvas`, and zooming in, we can notice that most private universities are located in close proximity to larger cities, such as Los Angeles, Dallas, Chicago, Washington DC, New York City, and Boston.
+Public and private universities are seemingly spread across the country in equal patterns. However, when displaying the map in the mode `OpenStreetMap` instead of the default mode `Esri.WorldGrayCanvas`, and zooming in, we can notice that most private universities are located in close proximity to larger cities, such as Los Angeles, Dallas, Chicago, Washington DC, New York City, and Boston.
 
 Several factors might explain this phenomenon, such as:
 
@@ -1842,11 +1841,11 @@ d. International Attraction: Cities tend to attract a diverse population, includ
 
 ##### 3. The Midwest as an under-researched area
 
-It is noticeable, that the universities are mainly concentrated along the coastlines and in the East of the US or along the coastlines. The Midwest/West and Alaska are relatively under-researched. Several factors might explain that observation:
+It is noticeable, that the universities are mainly concentrated along the coastlines and in the East of the US. The Midwest/West and Alaska are relatively under-researched. Several factors might explain that observation:
 
 a. Historical Development: As previously mentioned, many of the most prestigious universities in the United States, such as Harvard, were established in the colonial period on the East Coast. Potentially, the presence of these early institutions might have influenced the establishment of additional universities in nearby areas.
 
-b. Population Centers: The eastern and western coasts of the United States are home to some of the country's largest and most populous cities (Source: [Wikipedia](https://en.wikipedia.org/wiki/List_of_United_States_cities_by_population)). Potentially, Universities might tend to develop in areas with large population centers.
+b. Population Centers: The Eastern and Western coastlines of the United States are home to some of the country's largest and most populous cities (Source: [Wikipedia](https://en.wikipedia.org/wiki/List_of_United_States_cities_by_population)). Potentially, Universities might tend to develop in areas with large population centers.
 
 c. Economic Opportunities: Coastal areas might to have larger economic opportunities, including access to industries, businesses, and financial centers, potentially inspiring the establishment of higher education institutions.
 
